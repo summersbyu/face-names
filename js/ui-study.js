@@ -96,8 +96,19 @@ async function togglePhotos() {
 }
 const photoToggle = () => h('label', { class: 'inline small' },
   h('input', { type: 'checkbox', checked: !S.meta.onePhoto, onchange: togglePhotos }), ' Show alternate photos', h('span', { class: 'key-hint' }, ' (P)'));
+async function toggleNotes() {
+  S.meta.hideNotes = !S.meta.hideNotes;
+  await saveMeta();
+  render();
+}
+// A student's notes under their revealed name, which can be turned off.
+const notesArea = s => h('div', { class: 'notes-area' },
+  s.notes && !S.meta.hideNotes ? h('p', { class: 'facts' }, s.notes) : null,
+  h('label', { class: 'inline small' }, h('input', { type: 'checkbox', checked: !S.meta.hideNotes, onchange: toggleNotes }),
+    ' Show notes', h('span', { class: 'key-hint' }, ' (N)')));
 const withPhotoKey = keys => (e, typing) => {
   if (!typing && e.key.toLowerCase() === 'p') { togglePhotos(); return; }
+  if (!typing && e.key.toLowerCase() === 'n') { toggleNotes(); return; }
   keys && keys(e, typing);
 };
 
@@ -298,7 +309,7 @@ function sessionView() {
     card.append(
       h('h2', { class: 'name' }, nameLink(s)),
       h('p', { class: 'muted' }, [s.section, s.group ? `group ${s.group}` : '', seatText(s)].filter(Boolean).join(' · ')),
-      s.notes ? h('p', { class: 'facts' }, s.notes) : '',
+      notesArea(s),
       ss.hint ? h('p', { class: 'muted small' }, 'You used a hint, so this counts as Hard at most.') : '',
       early ? h('p', { class: 'muted small' }, 'Ahead of schedule: only a miss changes the next review date.') : '',
       h('div', { class: 'grades' },
@@ -493,7 +504,7 @@ function meetView() {
         else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); M.revealed = true; render(); }
       });
     } else {
-      card.append(h('h2', { class: 'name' }, nameLink(s)),
+      card.append(h('h2', { class: 'name' }, nameLink(s)), notesArea(s),
         M.hint ? h('p', { class: 'muted small' }, 'You used a hint, so this comes back once more to try without one.') : '',
         h('div', { class: 'grades two' },
           h('button', { class: 'grade again', onclick: () => mark(false) }, h('b', null, 'Missed it'), h('small', { class: 'key-hint' }, '1')),

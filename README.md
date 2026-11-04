@@ -168,6 +168,7 @@ so new people are introduced before you're tested on them:
 **Hints** (H), in recall and in reviews, step from the student's notes to initials, the last name, then the start of
 the first name. Recalling with less help is what builds memory, so a hinted answer counts as Hard at most, and in
 recall the student comes back once more to try without one. **Show alternate photos** (P) turns off the extra views.
+A student's notes appear under their name once it's revealed; **Show notes** (N) turns them off. Hints still use them.
 
 **2. Test yourself** (reviews) shows all of a student's photos at once; recall the name, press Space, and grade yourself
 (1 Again, 2 Hard, 3 Good, 4 Easy). It only includes people you've met. Reviews are scheduled by

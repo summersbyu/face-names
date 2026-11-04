@@ -213,6 +213,7 @@ table.students tbody tr:hover { background: var(--bg); }
 .meet-steps button { font-size: .8rem; padding: .15rem .6rem; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
 .meet-steps button.cur { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .meet-steps button.on { background: var(--bg); color: var(--text); }
+.notes-area { display: grid; justify-items: center; gap: .4rem; max-width: 100%; }
 .hints { display: grid; justify-items: center; gap: .4rem; }
 .hints p { margin: 0; }
 .hint-name { font-size: 1.3rem; font-weight: 600; letter-spacing: .04em; }
