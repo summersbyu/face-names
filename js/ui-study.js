@@ -81,6 +81,14 @@ function faceGallery(sid, recall = false) {
   return h('div', { class: `flash-faces n${Math.min(fs.length, 5)}` }, fs.map(f => h('img', { src: f.thumb, alt: 'Who is this?' })));
 }
 
+// The question after a miss: "Who did you think it was?"
+const mixupToggle = onChange => h('label', { class: 'inline small' },
+  h('input', { type: 'checkbox', checked: !S.meta.skipMixupQuestion, onchange: async e => {
+    S.meta.skipMixupQuestion = !e.target.checked;
+    await saveMeta();
+    onChange();
+  } }), ' After a miss, ask who I thought it was');
+
 async function togglePhotos() {
   S.meta.onePhoto = !S.meta.onePhoto;
   await saveMeta();
@@ -173,7 +181,8 @@ function studyHome() {
       h('p', { class: 'muted small' }, 'Recall the people you’ve met, on a spaced schedule. Misses come back sooner; people you mix up are drilled together.'),
       h('button', { class: c.due && !nextCount ? 'primary big' : 'big', disabled: !c.due, onclick: () => start('due') },
         c.due ? `Review ${c.due} due` : c.met ? 'All caught up' : 'Nothing to review yet'),
-      h('button', { disabled: !c.met, onclick: () => start('all') }, `Practice everyone met (${c.met})`)),
+      h('button', { disabled: !c.met, onclick: () => start('all') }, `Practice everyone met (${c.met})`),
+      mixupToggle(render)),
     (() => {
       S.setHow = S.setHow || 'weak';
       return h('div', { class: 'card' },
@@ -234,8 +243,8 @@ function sessionView() {
     if (g === 1) {
       ss.again++;
       ss.queue.splice(Math.min(ss.i + 4, ss.queue.length), 0, { sid: item.sid });
-      ss.picking = true;
-      render();
+      if (S.meta.skipMixupQuestion) advance();
+      else { ss.picking = true; render(); }
     } else advance();
   };
   const confusedAs = async other => {
@@ -277,7 +286,8 @@ function sessionView() {
       h('div', { class: 'alts grid' }, looks.map((id, i) =>
         h('button', { class: 'pick', onclick: () => confusedAs(id) }, h('kbd', null, String(i + 1)), avatarEl(id, 44),
           h('span', { class: 'pick-text' }, h('b', null, S.students.get(id).name))))),
-      h('button', { onclick: () => confusedAs(null) }, 'I didn’t know', h('span', { class: 'key-hint' }, ' (0)')));
+      h('button', { onclick: () => confusedAs(null) }, 'I didn’t know', h('span', { class: 'key-hint' }, ' (0)')),
+      mixupToggle(advance));
     S.onKey = (e, typing) => {
       if (typing) return;
       if (e.key === '0' || e.key === 'Escape') confusedAs(null);

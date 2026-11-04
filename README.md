@@ -173,7 +173,8 @@ recall the student comes back once more to try without one. **Show alternate pho
 (1 Again, 2 Hard, 3 Good, 4 Easy). It only includes people you've met. Reviews are scheduled by
 spaced repetition. Use the section picker to drill the
 class you're about to teach. When you miss one, tell it who you thought it was: the two of you will be
-shown back-to-back in future sessions until you can tell them apart. Practicing someone ahead of schedule doesn't push
+shown back-to-back in future sessions until you can tell them apart. To skip that question, untick **After a miss, ask
+who I thought it was**, on the question itself or on the Test yourself card. Mix-ups you've already recorded still count. Practicing someone ahead of schedule doesn't push
 their next review further out, since cramming doesn't earn a longer gap; only a miss changes the date.
 
 **3. Practice a set** picks about 10 students, either **least known** (shaky students you've met, then people not met
