@@ -21,8 +21,10 @@ same way (the same browser and the same file location), since the data is tied t
 
 The **Backup** tab saves two kinds of file:
 
-- **My backup** holds everything, including who you know. Use it to keep a copy or to move to another
-  computer: open the app there, click **Open a file**, and choose it. It replaces what's in that browser.
+- **My backup** holds everything, including who you know. Use it to keep a copy or to move to another device:
+  open the app there, click **Open a file**, and choose it. **Merge** keeps the newer version of each student and the
+  newer review of each, so progress from both devices is kept, and anything deleted on either side stays deleted.
+  **Replace** makes that browser an exact copy. The Study tab reminds you if a week passes without a backup.
 - **Student file** is for colleagues teaching the same students. It holds names, seats, photos, and your photo
   labels, but not your study progress, mix-ups, or study history. Notes are left out unless you tick the box.
   Opening one adds to what's there and keeps the colleague's own progress, so you can send an updated file later.
@@ -38,7 +40,7 @@ Safari can clear a site's data after about a week without use unless it's on the
 
 A phone suits Meet and Test yourself. Do imports and photo labeling on a computer, then bring the data over: on the
 computer, **Save my backup** (untick full class photos for a much smaller file), and on the phone, **Open a file**.
-Your phone and computer don't sync, and opening a backup replaces what's there, so move it each time you switch.
+Your phone and computer don't sync on their own: to bring progress across, save a backup on one and **Merge** it on the other.
 
 ## What to prepare
 
@@ -72,7 +74,9 @@ shows "also F26-2" next to linked students. If a chart and a roll hold the same 
 resolutions, only the largest, sharpest copy is kept; class photos are never removed. Open a student to undo a wrong link ("Not the same person") or to
 link one by hand after a name change (the closest-looking faces are listed first).
 
-**Under Manage → Sections** you can rename or delete a section. To drop one student from a section, open the
+**Under Manage → Sections** you can rename, merge, or delete a section. Merge is for one class imported twice: someone
+in both becomes one record with all their photos and notes. **Start a new semester** walks through importing new rosters,
+seeing who's returning, and removing old sections. To drop one student from a section, open the
 student and click **Drop from section**. Someone also in other sections stays there with their photos and progress;
 if it's their only section, their record is removed. Importing that section's chart or roll again brings them back.
 
@@ -183,6 +187,12 @@ their next review further out, since cramming doesn't earn a longer gap; only a 
 **3. Practice a set** picks about 10 students, either **least known** (shaky students you've met, then people not met
 yet) or **random**. **Study, mix, recall** runs the full routine; **Recall only** goes straight to testing people you've
 met. In any Meet or set session, click Group, Mix, or Recall at the top to jump there.
+
+**4. Seating chart quiz** shows a section's room with faces in their seats and names hidden. Tap a seat, recall who sits
+there, and check yourself. It counts toward reviews the same way recall does. It appears once a section has a chart.
+
+**Who I keep missing**, at the bottom of the Study tab, lists the students you miss most and the people you mix up, with
+buttons to practice them.
 
 ## Files
 

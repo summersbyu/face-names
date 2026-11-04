@@ -57,11 +57,23 @@ function modal(title, body, { actions = [], wide = false, onClose } = {}) {
   return dlg;
 }
 
-function confirmBox(msg, okLabel = 'OK', danger = false) {
+// Offered before anything that can't be undone.
+function backupFirstButton() {
+  const btn = h('button', { class: 'left', onclick: async () => {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    await saveBackup();
+    btn.textContent = 'Backup saved';
+  } }, 'Save a backup first');
+  return btn;
+}
+
+function confirmBox(msg, okLabel = 'OK', danger = false, { offerBackup = false } = {}) {
   return new Promise(resolve => {
     let ok = false;
     const dlg = modal('Please confirm', h('p', null, msg), {
       actions: [
+        offerBackup ? backupFirstButton() : null,
         h('button', { onclick: () => dlg.close() }, 'Cancel'),
         h('button', { class: danger ? 'danger' : 'primary', onclick: () => { ok = true; dlg.close(); } }, okLabel),
       ],
@@ -212,14 +224,40 @@ async function dropRecord(s) {
   }
   S.students.delete(s.id);
   await DB.del('students', s.id);
+  await markDeleted([s.id]);
   reindex();
+}
+
+async function moveSectionContents(from, to) {
+  await saveFaces([...S.faces.values()].filter(f => f.section === from).map(f => ({ ...f, section: to })));
+  for (const p of S.photos.values()) if (p.section === from) { p.section = to; p.edited = Date.now(); await DB.put('photos', p); }
+  if (S.section === from) S.section = to;
 }
 
 async function renameSection(from, to) {
   await saveStudents(sectionStudents(from).map(s => ({ ...s, section: to })));
-  await saveFaces([...S.faces.values()].filter(f => f.section === from).map(f => ({ ...f, section: to })));
-  for (const p of S.photos.values()) if (p.section === from) { p.section = to; await DB.put('photos', p); }
-  if (S.section === from) S.section = to;
+  await moveSectionContents(from, to);
+}
+
+// Combines two sections. Someone in both becomes one record in the section kept, with all their photos and notes.
+async function mergeSections(from, to) {
+  const { pairs, moves } = Engine.planSectionMerge(sectionStudents(from), sectionStudents(to), s => personOf(s.id));
+  for (const [a, b] of pairs) {
+    if (personOf(a.id) !== personOf(b.id)) {
+      const group = await mergePeople(a, b);
+      if (group) await saveStudents(group);
+    }
+    await saveFaces([...S.faces.values()].filter(f => f.studentId === a.id).map(f => ({ ...f, studentId: b.id })));
+    const kept = S.students.get(b.id);
+    await saveStudents([{ ...kept, notes: Engine.unionNotes(kept.notes, a.notes), group: kept.group || a.group, row: kept.row ?? a.row, seat: kept.seat ?? a.seat,
+      seatLabel: kept.seatLabel || a.seatLabel, pos: kept.pos || a.pos, aliases: [...new Set([...(kept.aliases || []), ...(a.aliases || [])])], legalName: kept.legalName || a.legalName }]);
+    S.students.delete(a.id);
+    await DB.del('students', a.id);
+    await markDeleted([a.id]);
+  }
+  await saveStudents(moves.map(s => ({ ...s, section: to })));
+  await moveSectionContents(from, to);
+  reindex();
 }
 
 // Class photos go with the section; a labeled face stays on the flashcards of anyone who's still here.
@@ -231,6 +269,7 @@ async function deleteSection(sec) {
   await saveFaces(faces.filter(kept).map(f => ({ ...f, photoId: null })));
   await deleteFaces(faces.filter(f => !kept(f)).map(f => f.id));
   for (const p of photos) { S.photos.delete(p.id); await DB.del('photos', p.id); }
+  await markDeleted(photos.map(p => p.id));
 }
 
 const sections = () => [...new Set([...S.students.values()].map(s => s.section))].sort(naturalSort);
@@ -253,10 +292,17 @@ function avatarEl(sid, size = 40) {
 
 const seatText = s => (s.seatLabel ? `seat ${s.seatLabel}` : s.row != null && s.seat != null ? `row ${s.row}, seat ${s.seat}` : '');
 
-async function saveStudents(list) { for (const s of list) S.students.set(s.id, s); await DB.putMany('students', list); }
-async function saveFaces(list) { for (const f of list) S.faces.set(f.id, f); await DB.putMany('faces', list); reindex(); }
-async function deleteFaces(ids) { for (const id of ids) S.faces.delete(id); await DB.delMany('faces', ids); reindex(); }
+// Records carry the time they last changed and deletions are remembered, so a backup from another device can be merged.
+async function saveStudents(list) { for (const s of list) { s.edited = Date.now(); S.students.set(s.id, s); } await DB.putMany('students', list); }
+async function saveFaces(list) { for (const f of list) { f.edited = Date.now(); S.faces.set(f.id, f); } await DB.putMany('faces', list); reindex(); }
+async function deleteFaces(ids) { for (const id of ids) S.faces.delete(id); await DB.delMany('faces', ids); await markDeleted(ids); reindex(); }
 async function saveMeta() { await DB.put('meta', S.meta); }
+async function markDeleted(ids) {
+  if (!ids.length) return;
+  S.meta.deleted = S.meta.deleted || {};
+  for (const id of ids) S.meta.deleted[id] = Date.now();
+  await saveMeta();
+}
 
 function sectionSelect(value, onChange, { all = false } = {}) {
   const secs = sections();
@@ -277,7 +323,7 @@ const MANAGE = [['roster', 'Students'], ['sections', 'Sections'], ['label', 'Cla
 const TABS = [['study', 'Study'], ['manage', 'Manage'], ['backup', 'Backup']];
 const inManage = view => MANAGE.some(([id]) => id === view);
 let lastManage = 'roster';
-const goTo = view => { S.view = view; S.reviewPhoto = null; S.meet = null; render(); };
+const goTo = view => { S.view = view; S.reviewPhoto = null; S.meet = null; S.room = null; render(); };
 
 function manageNav() {
   return h('nav', { class: 'subtabs', 'aria-label': 'Manage' }, MANAGE.map(([id, label]) =>
@@ -327,6 +373,10 @@ async function init() {
   } catch {}
   if (!S.students.size) S.view = 'roster';
   render();
+  try {
+    const merged = sessionStorage.getItem('fn-merged');
+    if (merged) { sessionStorage.removeItem('fn-merged'); toast(merged, 9000); }
+  } catch {}
   removeDuplicatePhotos().then(n => {
     if (!n) return;
     toast(`Removed ${n} duplicate photos (the same picture at a lower resolution).`, 6000);

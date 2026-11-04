@@ -152,7 +152,10 @@ function seatKey(list) {
     h('span', { class: `seat-swatch ${k}` }, `${label}: ${count(k)}`)));
 }
 
-function seatingChart(seated) {
+// A quiz reuses the charts with its own colors, labels, and click.
+const plainSeats = { cls: s => knowledgeOf(s.id), label: firstName, click: s => editStudent(s), title: true };
+
+function seatingChart(seated, seats = plainSeats) {
   const rows = seated.map(s => +s.row), cols = seated.map(s => +s.seat);
   const r0 = Math.min(...rows), r1 = Math.max(...rows), c0 = Math.min(...cols), c1 = Math.max(...cols);
   const grid = h('div', { class: 'seat-grid', style: { gridTemplateColumns: `auto repeat(${c1 - c0 + 1}, minmax(64px, 1fr))` } });
@@ -162,24 +165,26 @@ function seatingChart(seated) {
     for (let c = c0; c <= c1; c++) {
       const s = at.get(`${r}|${c}`);
       grid.append(s
-        ? h('button', { class: `seat ${knowledgeOf(s.id)}`, title: `${s.name}${s.group ? ' · group ' + s.group : ''}`, onclick: () => editStudent(s) },
-          avatarEl(s.id, 40), h('span', null, firstName(s)))
+        ? h('button', { class: `seat ${seats.cls(s)}`, title: seats.title ? `${s.name}${s.group ? ' · group ' + s.group : ''}` : null, onclick: () => seats.click(s) },
+          avatarEl(s.id, 40), h('span', null, seats.label(s)))
         : h('div', { class: 'seat empty' }));
     }
   }
+  if (seats !== plainSeats) return h('div', { class: 'scroll-x' }, grid);
   return h('div', { class: 'card' }, h('h3', null, 'Seating chart'), seatKey(seated), h('div', { class: 'scroll-x' }, grid));
 }
 
 // Students placed from a seating-chart PDF, drawn where they sit on the chart.
-function floorPlan(placed) {
+function floorPlan(placed, seats = plainSeats) {
   const xs = placed.map(s => s.pos.x), ys = placed.map(s => s.pos.y);
   const x0 = Math.min(...xs) - 0.8, y0 = Math.min(...ys) - 0.8;
   const W = Math.max(...xs) + 0.8 - x0, H = Math.max(...ys) + 0.8 - y0;
   const plan = h('div', { class: 'floor-plan', style: { aspectRatio: `${W} / ${H}` } },
     placed.map(s => h('button', {
-      class: `seat placed ${knowledgeOf(s.id)}`, title: `${s.name}${s.seatLabel ? ' · seat ' + s.seatLabel : ''}`, onclick: () => editStudent(s),
+      class: `seat placed ${seats.cls(s)}`, title: seats.title ? `${s.name}${s.seatLabel ? ' · seat ' + s.seatLabel : ''}` : null, onclick: () => seats.click(s),
       style: { left: `${((s.pos.x - x0) / W) * 100}%`, top: `${((s.pos.y - y0) / H) * 100}%` },
-    }, avatarEl(s.id, 36), h('span', null, firstName(s)))));
+    }, avatarEl(s.id, 36), h('span', null, seats.label(s)))));
+  if (seats !== plainSeats) return h('div', { class: 'scroll-x' }, plan);
   return h('div', { class: 'card' }, h('h3', null, 'Seating chart'), seatKey(placed), h('div', { class: 'scroll-x' }, plan));
 }
 
@@ -224,10 +229,10 @@ async function importRosterFile(file) {
   render();
 }
 
-function pickSection(message) {
+function pickSection(message, exclude = null) {
   return new Promise(resolve => {
     let out = null;
-    const select = h('select', { 'aria-label': 'Section' }, sections().map(x => h('option', { value: x, selected: x === S.section }, x)));
+    const select = h('select', { 'aria-label': 'Section' }, sections().filter(x => x !== exclude).map(x => h('option', { value: x, selected: x === S.section }, x)));
     const dlg = modal('Which section?', h('label', { class: 'field' }, message, select), {
       actions: [
         h('button', { onclick: () => dlg.close() }, 'Cancel'),
@@ -424,6 +429,7 @@ function editStudent(s) {
 
 VIEWS.sections = () => {
   const wrap = h('div', { class: 'view' });
+  if (S.newSemester) return newSemesterView();
   if (!S.students.size) {
     wrap.append(h('div', { class: 'card' }, h('p', null, 'Sections appear here once you’ve imported students.'),
       h('button', { class: 'primary', onclick: () => goTo('roster') }, 'Go to Students')));
@@ -432,7 +438,7 @@ VIEWS.sections = () => {
   const rename = async sec => {
     const to = await promptBox('Rename section', `New name for ${sec}:`, sec);
     if (!to || to === sec) return;
-    if (sections().includes(to)) { toast(`There’s already a section named ${to}. Choose a different name.`, 5000); return; }
+    if (sections().includes(to)) { toast(`There’s already a section named ${to}. Choose a different name, or use Merge to combine them.`, 5000); return; }
     await renameSection(sec, to);
     render();
     toast(`Renamed to ${to}.`);
@@ -444,10 +450,25 @@ VIEWS.sections = () => {
       only ? `${only} student${only === 1 ? '' : 's'} in no other section will be removed, with their photos and study progress.` : '',
       elsewhere ? `${elsewhere} also in other sections will stay there, with their photos and progress.` : '',
       photos ? `${photos} class photo${photos === 1 ? '' : 's'} will be deleted; faces labeled in them stay on the flashcards of students who remain.` : ''].filter(Boolean).join(' ');
-    if (!(await confirmBox(msg, 'Delete section', true))) return;
+    if (!(await confirmBox(msg, 'Delete section', true, { offerBackup: true }))) return;
     await deleteSection(sec);
     render();
     toast(`Deleted ${sec}.`);
+  };
+  const merge = async sec => {
+    const to = await pickSection(`Combine ${sec} into which section? ${sec} goes away; the one you pick keeps its name.`, sec);
+    if (!to) return;
+    const { pairs, moves } = Engine.planSectionMerge(sectionStudents(sec), sectionStudents(to), s => personOf(s.id));
+    const photos = [...S.photos.values()].filter(p => p.section === sec).length;
+    const msg = [`Merge ${sec} into ${to}?`,
+      pairs.length ? `${pairs.length} student${pairs.length === 1 ? ' is' : 's are'} in both and will become one record, with all their photos and notes.` : '',
+      moves.length ? `${moves.length} will move to ${to}.` : '',
+      photos ? `${photos} class photo${photos === 1 ? '' : 's'} will move too.` : '',
+      'Use this for the same class imported twice, not for different semesters. This can’t be undone.'].filter(Boolean).join(' ');
+    if (!(await confirmBox(msg, 'Merge', true, { offerBackup: true }))) return;
+    await mergeSections(sec, to);
+    render();
+    toast(`Merged ${sec} into ${to}.`);
   };
   wrap.append(h('div', { class: 'card' },
     h('h3', null, `${sections().length} section${sections().length === 1 ? '' : 's'}`),
@@ -458,11 +479,60 @@ VIEWS.sections = () => {
           ` · ${list.length} student${list.length === 1 ? '' : 's'} · ${photos} class photo${photos === 1 ? '' : 's'}`)),
         h('span', { class: 'toolbar' },
           h('button', { onclick: () => rename(sec) }, 'Rename'),
+          sections().length > 1 ? h('button', { onclick: () => merge(sec) }, 'Merge') : null,
           h('button', { class: 'danger', onclick: () => remove(sec) }, 'Delete')));
     }))),
+    h('div', { class: 'toolbar' }, h('button', { onclick: () => { S.newSemester = { before: sections(), remove: new Set() }; render(); } }, 'Start a new semester')),
     h('p', { class: 'muted small' }, 'A student in several sections or classes is one student: their records are linked by name, so photos and study progress are shared and they’re only studied once. Open a student to check or undo a link.'));
   return wrap;
 };
+
+// Guided setup: bring in the new rosters, see who's returning, and clear out old sections.
+function newSemesterView() {
+  const N = S.newSemester;
+  const old = N.before.filter(x => sections().includes(x));
+  const added = sections().filter(x => !N.before.includes(x));
+  const newcomers = onePerPerson(added.flatMap(x => sectionStudents(x)));
+  const returning = newcomers.filter(s => linkedOf(s.id).some(o => old.includes(o.section)));
+  const finish = () => { S.newSemester = null; render(); };
+  const removeOld = async () => {
+    const chosen = old.filter(x => N.remove.has(x));
+    if (!chosen.length) { toast('Tick the sections to remove first.'); return; }
+    const records = chosen.flatMap(x => sectionStudents(x));
+    const stay = records.filter(s => linkedOf(s.id).some(o => !chosen.includes(o.section))).length;
+    if (!(await confirmBox(`Remove ${chosen.join(', ')}? ${records.length - stay} student record${records.length - stay === 1 ? '' : 's'} in no other section will be removed, with their photos and progress. ${stay} also in other sections will stay there. This can’t be undone.`, 'Remove', true, { offerBackup: true }))) return;
+    for (const x of chosen) await deleteSection(x);
+    N.remove.clear();
+    render();
+    toast(`Removed ${chosen.join(', ')}.`);
+  };
+  return h('div', { class: 'view' },
+    h('div', { class: 'card' },
+      h('h2', null, 'Start a new semester'),
+      h('p', { class: 'muted' }, 'Your current sections stay until you choose to remove them. Include the term in each new name, like W27-1.')),
+    h('div', { class: 'card' },
+      h('h3', null, '1. Bring in the new rosters'),
+      h('div', { class: 'toolbar' },
+        h('button', { class: 'primary', onclick: importSeatingCharts }, 'Import seating chart'),
+        h('button', { class: 'needs-computer', onclick: importRollPages }, 'Import picture roll'),
+        h('button', { onclick: importRoster }, 'Import roster CSV')),
+      added.length ? h('p', null, `Added so far: ${added.join(', ')}.`) : h('p', { class: 'muted small' }, 'Nothing added yet.')),
+    h('div', { class: 'card' },
+      h('h3', null, '2. Returning students'),
+      newcomers.length
+        ? h('p', null, `${returning.length} of ${newcomers.length} new students are returning: they’re linked by name and keep their photos and study progress.`)
+        : h('p', { class: 'muted small' }, 'This fills in once you’ve imported a new section.'),
+      returning.length ? h('details', { class: 'small' }, h('summary', null, 'Who’s returning'),
+        h('div', { class: 'thumb-row' }, returning.map(s => h('button', { class: 'chip person', onclick: () => editStudent(s) }, avatarEl(s.id, 28), s.name)))) : null,
+      newcomers.length > returning.length ? h('p', { class: 'muted small' }, 'Someone’s name changed? Open them under Students and link them by hand.') : null),
+    h('div', { class: 'card' },
+      h('h3', null, '3. Remove old sections (optional)'),
+      old.length ? h('div', { class: 'section-rows' }, old.map(x => h('label', { class: 'inline' },
+        h('input', { type: 'checkbox', checked: N.remove.has(x), onchange: e => { if (e.target.checked) N.remove.add(x); else N.remove.delete(x); } }),
+        ` ${x} · ${sectionStudents(x).length} students`))) : h('p', { class: 'muted small' }, 'No old sections left.'),
+      old.length ? h('div', { class: 'toolbar' }, h('button', { class: 'danger', onclick: removeOld }, 'Remove selected')) : null),
+    h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: finish }, 'Done')));
+}
 
 // ---------- Picture roll: saved class photo roll pages ----------
 

@@ -3,6 +3,26 @@
 const blobToDataURL = blob => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
 const dataURLToBlob = url => fetch(url).then(r => r.blob());
 
+function downloadJSON(data, name) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  const a = h('a', { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+async function photoData(include) {
+  const photos = [];
+  if (include) for (const p of S.photos.values()) { const { blob, ...rest } = p; photos.push({ ...rest, data: await blobToDataURL(blob) }); }
+  return photos;
+}
+async function saveBackup(includePhotos = true) {
+  S.meta.lastBackup = Date.now();
+  await saveMeta();
+  downloadJSON({ app: 'face-names', version: 1, kind: 'full', exported: new Date().toISOString(),
+    students: [...S.students.values()], faces: [...S.faces.values()], srs: [...S.srs.values()], meta: S.meta,
+    photos: await photoData(includePhotos) }, `face-names-my-backup-${today()}.json`);
+}
+const lastBackupText = () => (S.meta.lastBackup ? `Last backup: ${new Date(S.meta.lastBackup).toLocaleDateString()}.` : 'No backup saved yet.');
+
 VIEWS.backup = () => {
   const wrap = h('div', { class: 'view' });
   const usage = h('p', { class: 'muted' });
@@ -14,31 +34,19 @@ VIEWS.backup = () => {
   const shareNotes = h('input', { type: 'checkbox' });
   const status = h('p', { class: 'progress', role: 'status' });
 
-  const download = (data, name) => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
-    const a = h('a', { href: url, download: name });
-    document.body.append(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  };
-  const photoData = async include => {
-    const photos = [];
-    if (include) for (const p of S.photos.values()) { const { blob, ...rest } = p; photos.push({ ...rest, data: await blobToDataURL(blob) }); }
-    return photos;
-  };
-
+  const lastSaved = h('p', { class: 'muted' }, lastBackupText());
   const exportAll = async () => {
     status.textContent = 'Preparing backup…';
-    download({ app: 'face-names', version: 1, kind: 'full', exported: new Date().toISOString(),
-      students: [...S.students.values()], faces: [...S.faces.values()], srs: [...S.srs.values()], meta: S.meta,
-      photos: await photoData(fullPhotos.checked) }, `face-names-my-backup-${today()}.json`);
+    await saveBackup(fullPhotos.checked);
     status.textContent = '';
+    lastSaved.textContent = lastBackupText();
   };
 
   // Students, photos, and labels for a colleague. Study progress and mix-ups stay out: they're in srs and meta.
   const exportStudents = async () => {
     status.textContent = 'Preparing student file…';
     const students = [...S.students.values()].map(s => (shareNotes.checked ? s : { ...s, notes: '', fileNotes: '' }));
-    download({ app: 'face-names', version: 1, kind: 'students', exported: new Date().toISOString(),
+    downloadJSON({ app: 'face-names', version: 1, kind: 'students', exported: new Date().toISOString(),
       students, faces: [...S.faces.values()], photos: await photoData(sharePhotos.checked) }, `face-names-students-${today()}.json`);
     status.textContent = '';
   };
@@ -59,6 +67,38 @@ VIEWS.backup = () => {
     await DB.putMany('students', merged.students);
     await DB.putMany('faces', merged.faces);
     await DB.putMany('photos', photos);
+    location.reload();
+  };
+
+  // Merge is the safe default: moving progress between a phone and a computer shouldn't lose either side's work.
+  const openBackup = data => {
+    const when = String(data.exported).slice(0, 10);
+    if (!S.students.size) { restoreFull(data); return; }
+    const dlg = modal('Open this backup', h('div', null,
+      h('p', null, `This backup is from ${when}, with ${data.students.length} records.`),
+      h('p', null, h('b', null, 'Merge'), ' keeps the newer version of each student and the newer review of each, so progress from both devices is kept.'),
+      h('p', null, h('b', null, 'Replace'), ' makes this browser an exact copy of the backup. Anything newer here is lost.')), {
+      actions: [backupFirstButton(),
+        h('button', { onclick: () => dlg.close() }, 'Cancel'),
+        h('button', { class: 'danger', onclick: () => { dlg.close(); restoreFull(data); } }, 'Replace'),
+        h('button', { class: 'primary', onclick: () => { dlg.close(); mergeFull(data); } }, 'Merge')],
+    });
+  };
+
+  const mergeFull = async data => {
+    status.textContent = 'Merging…';
+    const photos = await unpackPhotos(data.photos);
+    const m = Engine.mergeBackup({ students: [...S.students.values()], faces: [...S.faces.values()], photos: [...S.photos.values()], srs: [...S.srs.values()], meta: S.meta },
+      { students: data.students, faces: data.faces, photos, srs: data.srs, meta: data.meta });
+    const missing = (store, have) => [...have.keys()].filter(id => !m[store].some(x => x.id === id));
+    for (const [store, have] of [['students', S.students], ['faces', S.faces], ['photos', S.photos], ['srs', S.srs]]) {
+      await DB.delMany(store, missing(store, have));
+      await DB.putMany(store, m[store]);
+    }
+    await DB.put('meta', m.meta);
+    try {
+      sessionStorage.setItem('fn-merged', `Merged. New student records: ${m.counts.newStudents}. Newer reviews: ${m.counts.newerReviews}. Removed because they were deleted on the other device: ${m.counts.removed}.`);
+    } catch {}
     location.reload();
   };
 
@@ -84,11 +124,11 @@ VIEWS.backup = () => {
     let data;
     try { data = JSON.parse(await file.text()); } catch { toast('That file isn’t from this app.'); return; }
     if (data.app !== 'face-names') { toast('That file isn’t from this app.'); return; }
-    await (data.kind === 'students' ? addStudentFile(data) : restoreFull(data));
+    await (data.kind === 'students' ? addStudentFile(data) : openBackup(data));
   };
 
   const wipe = async () => {
-    if (!(await confirmBox('Delete all students, photos, and study history from this browser? Make a backup first if you might want them.', 'Delete everything', true))) return;
+    if (!(await confirmBox('Delete all students, photos, and study history from this browser? Make a backup first if you might want them.', 'Delete everything', true, { offerBackup: true }))) return;
     for (const s of DB.STORES) await DB.clear(s);
     location.reload();
   };
@@ -96,7 +136,8 @@ VIEWS.backup = () => {
   wrap.append(
     h('div', { class: 'card' },
       h('h2', null, 'Save a copy for yourself'),
-      h('p', null, 'Everything lives only in this browser on this computer. Clearing browsing data or switching browsers loses it. A backup holds everything, including who you know, so you can keep it safe or move to another computer.'),
+      h('p', null, 'Everything lives only in this browser on this device. Clearing browsing data or switching browsers loses it. A backup holds everything, including who you know, so you can keep it safe or move to another device.'),
+      lastSaved,
       usage,
       h('label', { class: 'inline' }, fullPhotos, ' Include full class photos (larger file; faces and labels are always included)'),
       h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: exportAll }, 'Save my backup')),
@@ -110,7 +151,7 @@ VIEWS.backup = () => {
       h('p', { class: 'muted small' }, 'Colleagues load it below. Sending an updated file later adds to what they have and keeps their progress.')),
     h('div', { class: 'card' },
       h('h2', null, 'Open a file'),
-      h('p', null, 'A student file adds students and keeps your progress. A backup replaces everything in this browser. The app asks before changing anything.'),
+      h('p', null, 'A student file adds students and keeps your progress. A backup can be merged with what’s here, or replace it. The app asks before changing anything.'),
       h('div', { class: 'toolbar' }, h('button', { onclick: openFile }, 'Open a file')),
       status,
       h('p', { class: 'muted small' }, 'These files contain student photos and names. Store and send them as you would other student records.')),

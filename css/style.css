@@ -129,6 +129,11 @@ table.students tbody tr:hover { background: var(--bg); }
 .seat.known, .seat-swatch.known { background: color-mix(in srgb, var(--good) 28%, var(--card)); }
 .seat.learning, .seat-swatch.learning { background: color-mix(in srgb, var(--hard) 28%, var(--card)); }
 .seat.new, .seat-swatch.new { background: var(--card); }
+.seat.missed { background: color-mix(in srgb, var(--again) 28%, var(--card)); }
+.room-ask { padding: 0; }
+.room-ask .flash-faces { --size: min(240px, 60vw, 34vh); }
+.missed-card summary { cursor: pointer; }
+.missed-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .4rem; margin-bottom: .6rem; }
 .seat-key { margin-bottom: .6rem; }
 .seat-swatch { padding: .15rem .55rem; border: 1px solid var(--line); border-radius: 999px; }
 

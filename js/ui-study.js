@@ -139,15 +139,99 @@ function pickSet(sec, how, size, metOnly) {
 function startSet(sec, how, recallOnly) {
   const ids = pickSet(sec, how, S.meta.newPerSession || 10, recallOnly);
   if (!ids.length) { toast(recallOnly ? 'Recall needs people you’ve met. Meet some students first.' : 'No students with photos here yet.'); return; }
+  startIds(sec, ids, { how, recallOnly });
+}
+function startIds(sec, ids, set) {
+  const recallOnly = set.recallOnly;
   const chunks = [];
   for (let i = 0; i < ids.length; i += 5) chunks.push(ids.slice(i, i + 5));
   if (chunks.length > 1 && chunks[chunks.length - 1].length <= 2) chunks[chunks.length - 2].push(...chunks.pop());
   S.meet = { sec, chunks, ci: 0, phase: recallOnly ? 'recall' : 'meet', queue: recallOnly ? shuffle(ids) : [], qi: 0, picked: null, revealed: false,
-    hint: 0, first: new Map(), set: { how, recallOnly } };
+    hint: 0, first: new Map(), set };
   render();
 }
 
-VIEWS.study = () => (S.meet ? meetView() : S.session ? sessionView() : studyHome());
+// One recall attempt counts toward the schedule. Someone not due yet only moves on a miss.
+async function creditRecall(sid, ok, hinted = false) {
+  const rec = srsOf(sid) || null, now = Date.now();
+  if (ok && rec && rec.due > now) return;
+  const r = { ...Engine.schedule(rec, !ok ? 1 : hinted ? 2 : 3, now), id: personOf(sid) };
+  S.srs.set(r.id, r);
+  await DB.put('srs', r);
+}
+
+// ---------- Who I keep missing ----------
+function missedCard(sec) {
+  const pool = onePerPerson(sectionStudents(sec)).filter(s => facesOf(s.id).length);
+  const people = new Map(pool.map(s => [personOf(s.id), s]));
+  const missed = pool.filter(s => srsOf(s.id)?.lapses > 0).sort((a, b) => srsOf(b.id).lapses - srsOf(a.id).lapses || naturalSort(a.name, b.name)).slice(0, 10);
+  const pairs = new Map();
+  for (const [k, n] of Object.entries(S.meta.confusions || {})) {
+    const [a, b] = k.split('|').map(personOf);
+    if (a === b || !people.has(a) || !people.has(b)) continue;
+    const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+    pairs.set(key, (pairs.get(key) || 0) + n);
+  }
+  const topPairs = [...pairs].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([k, n]) => [...k.split('|').map(p => people.get(p)), n]);
+  if (!missed.length && !topPairs.length) return null;
+  return h('details', { class: 'card missed-card' },
+    h('summary', null, h('b', null, 'Who I keep missing')),
+    missed.length ? h('div', null,
+      h('h4', null, 'Missed most'),
+      h('div', { class: 'missed-list' }, missed.map(s => h('button', { class: 'pick', onclick: () => editStudent(s) }, avatarEl(s.id, 36),
+        h('span', { class: 'pick-text' }, h('b', null, s.name), h('small', null, `missed ${srsOf(s.id).lapses} time${srsOf(s.id).lapses === 1 ? '' : 's'}`))))),
+      h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: () => startIds(sec, missed.map(s => s.id), { ids: true }) }, 'Practice these'))) : null,
+    topPairs.length ? h('div', null,
+      h('h4', null, 'People I mix up'),
+      h('div', { class: 'missed-list' }, topPairs.map(([a, b, n]) => h('button', { class: 'pick', onclick: () => startIds(sec, [a.id, b.id], { ids: true }) },
+        avatarEl(a.id, 36), avatarEl(b.id, 36),
+        h('span', { class: 'pick-text' }, h('b', null, `${a.name} & ${b.name}`), h('small', null, `mixed up ${n} time${n === 1 ? '' : 's'} · tap to practice`)))))) : null);
+}
+
+// ---------- Seating chart quiz: a face in a seat is the cue you'll have in class ----------
+const chartStudents = sec => {
+  const list = sectionStudents(sec).filter(s => facesOf(s.id).length);
+  const placed = list.filter(s => s.pos);
+  return placed.length ? { placed } : { seated: list.filter(s => s.row != null && s.seat != null) };
+};
+const hasChart = sec => { const c = chartStudents(sec); return (c.placed || c.seated).length > 0; };
+
+function roomView() {
+  const R = S.room, chart = chartStudents(R.sec), list = chart.placed || chart.seated;
+  const got = list.filter(s => R.marks.get(s.id) === true).length, tried = list.filter(s => R.marks.has(s.id)).length;
+  const ask = s => {
+    const body = h('div', { class: 'flash room-ask' });
+    const mark = async ok => {
+      if (!R.marks.has(s.id)) await creditRecall(s.id, ok);
+      R.marks.set(s.id, ok);
+      dlg.close();
+      render();
+    };
+    const dlg = modal('Who sits here?', body);
+    body.append(faceGallery(s.id, true), h('p', { class: 'muted small' }, seatText(s)),
+      h('button', { class: 'primary big', onclick: e => {
+        e.currentTarget.replaceWith(h('h2', { class: 'name' }, s.name), notesArea(s),
+          h('div', { class: 'grades two' },
+            h('button', { class: 'grade again', onclick: () => mark(false) }, h('b', null, 'Missed it')),
+            h('button', { class: 'grade good', onclick: () => mark(true) }, h('b', null, 'Got it'))));
+      } }, 'Show name'));
+  };
+  const seats = {
+    cls: s => (R.marks.get(s.id) === true ? 'known' : R.marks.get(s.id) === false ? 'missed' : 'new'),
+    label: s => (R.marks.has(s.id) ? firstName(s) : ''),
+    click: ask,
+  };
+  return h('div', { class: 'view' },
+    h('div', { class: 'session-bar' },
+      h('button', { class: 'link', onclick: () => { S.room = null; render(); } }, '← End'),
+      h('span', null, h('b', null, R.sec), ` · ${tried} of ${list.length} tried · ${got} right`),
+      h('button', { onclick: () => { R.marks = new Map(); render(); } }, 'Start over')),
+    h('div', { class: 'card' },
+      h('p', { class: 'muted small' }, 'Tap a seat, say the name, then check yourself. Green is right, red is missed.'),
+      chart.placed ? floorPlan(list, seats) : seatingChart(list, seats)));
+}
+
+VIEWS.study = () => (S.room ? roomView() : S.meet ? meetView() : S.session ? sessionView() : studyHome());
 
 function studyHome() {
   const wrap = h('div', { class: 'view' });
@@ -172,6 +256,14 @@ function studyHome() {
   const nextMeet = meetChunks(sec, perMeet);
   const nextCount = nextMeet.flat().length;
   const nextGroups = [...new Set(nextMeet.flat().map(id => S.students.get(id).group).filter(Boolean))];
+  const stale = S.srs.size && (!S.meta.lastBackup || Date.now() - S.meta.lastBackup > 7 * Engine.DAY);
+  if (stale) {
+    const save = h('button', { onclick: async () => { save.disabled = true; save.textContent = 'Saving…'; await saveBackup(); render(); toast('Backup saved. Keep it somewhere safe.'); } }, 'Save a backup');
+    wrap.append(h('div', { class: 'tip toolbar' }, h('span', { class: 'spacer' }, `Your progress is only in this browser. ${lastBackupText()}`), save));
+  }
+  const chartSections = sections().filter(hasChart);
+  const roomSection = sec && chartSections.includes(sec) ? sec : chartSections.includes(S.roomSection) ? S.roomSection : chartSections[0];
+  S.roomSection = roomSection;
   wrap.append(h('div', { class: 'card study-home' },
     h('div', { class: 'toolbar' }, sectionSelect(sec, v => { S.studySection = v; render(); }, { all: true })),
     h('div', { class: 'stats' },
@@ -205,7 +297,14 @@ function studyHome() {
         h('div', { class: 'toolbar' },
           h('button', { class: 'primary', disabled: !c.pool, onclick: () => startSet(sec, S.setHow, false) }, 'Study, mix, recall'),
           h('button', { disabled: !c.met, onclick: () => startSet(sec, S.setHow, true) }, 'Recall only')));
-    })()));
+    })(),
+    chartSections.length ? h('div', { class: 'card' },
+      h('h3', null, '4. Seating chart quiz'),
+      h('p', { class: 'muted small' }, 'Faces in their seats, names hidden. Tap a seat and recall who sits there.'),
+      h('select', { 'aria-label': 'Section for the quiz', onchange: e => { S.roomSection = e.target.value; } },
+        chartSections.map(x => h('option', { value: x, selected: x === roomSection }, x))),
+      h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: () => { S.room = { sec: S.roomSection, marks: new Map() }; render(); } }, 'Start the quiz'))) : null),
+    missedCard(sec));
 
   const secs = sections();
   if (secs.length > 1) {
@@ -443,7 +542,7 @@ function meetView() {
       h('p', { class: 'muted' }, M.set ? 'Anyone you missed comes back in about 10 minutes. ' : 'They’re now in your Study deck: anyone you missed comes back in about 10 minutes, the rest tomorrow. ',
         'A short break before the next batch helps the names settle.'),
       h('div', { class: 'toolbar' },
-        M.set ? h('button', { onclick: () => startSet(M.sec, M.set.how, M.set.recallOnly) }, 'Another set')
+        M.set?.ids ? null : M.set ? h('button', { onclick: () => startSet(M.sec, M.set.how, M.set.recallOnly) }, 'Another set')
           : more ? h('button', { onclick: () => startMeet(M.sec) }, `Meet the next ${S.meta.newPerSession || 10}`) : null,
         h('button', { class: 'primary', onclick: end }, 'Done'))));
     S.onKey = (e, typing) => { if (!typing && e.key === 'Enter') { e.preventDefault(); end(); } };
@@ -485,13 +584,7 @@ function meetView() {
       const hinted = ok && M.hint > 0;
       if (!M.first.has(sid)) {
         M.first.set(sid, ok && !hinted);
-        const rec = srsOf(sid) || null, now = Date.now();
-        // Someone not due yet only moves on a miss, the same as practicing ahead of schedule.
-        if (!ok || !rec || rec.due <= now) {
-          const r = { ...Engine.schedule(rec, !ok ? 1 : hinted ? 2 : 3, now), id: personOf(sid) };
-          S.srs.set(r.id, r);
-          await DB.put('srs', r);
-        }
+        await creditRecall(sid, ok, hinted);
       }
       if (!ok || hinted) M.queue.splice(Math.min(M.qi + 3, M.queue.length), 0, sid);  // try again later, unaided
       advance();

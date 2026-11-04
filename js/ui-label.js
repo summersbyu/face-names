@@ -114,7 +114,7 @@ function photoListView() {
         h('button', { class: 'link danger', onclick: async () => {
           if (!(await confirmBox('Delete this photo and every face labeled in it? Roster photos are not affected.', 'Delete', true))) return;
           await deleteFaces(photoFaces(p.id).map(f => f.id));
-          S.photos.delete(p.id); await DB.del('photos', p.id);
+          S.photos.delete(p.id); await DB.del('photos', p.id); await markDeleted([p.id]);
           if (photoUrls.has(p.id)) { URL.revokeObjectURL(photoUrls.get(p.id)); photoUrls.delete(p.id); }
           render();
         } }, 'Delete')));

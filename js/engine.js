@@ -408,6 +408,80 @@
     return [typed, next].filter(Boolean).join('\n');
   }
 
+  // Every line from both notes, the first's order first, so a cue typed on either side survives.
+  function unionNotes(a, b) {
+    const lines = String(a || '').split('\n');
+    const have = new Set(lines.map(l => l.trim()));
+    for (const l of String(b || '').split('\n')) if (l.trim() && !have.has(l.trim())) { lines.push(l); have.add(l.trim()); }
+    return lines.join('\n').trim();
+  }
+
+  // ---------- Merging a backup from another device ----------
+  // Each record keeps its newer version, each student their newer review, and something deleted on either side stays
+  // deleted unless it was changed afterward. Backups saved before records were dated count as oldest; ties keep mine.
+  function mergeBackup(mine, file) {
+    const stamp = x => x.edited || 0;
+    const deleted = { ...(mine.meta?.deleted || {}) };
+    for (const [k, t] of Object.entries(file.meta?.deleted || {})) deleted[k] = Math.max(deleted[k] || 0, t);
+    const combine = (as, bs, choose) => {
+      const out = new Map((as || []).map(a => [a.id, a]));
+      for (const b of bs || []) out.set(b.id, out.has(b.id) ? choose(out.get(b.id), b) : b);
+      return [...out.values()].filter(x => !(deleted[x.id] > stamp(x)));
+    };
+    const students = combine(mine.students, file.students, (a, b) => {
+      const w = stamp(b) > stamp(a) ? b : a, o = w === a ? b : a;
+      return { ...w, notes: unionNotes(w.notes, o.notes) };
+    });
+    const photos = combine(mine.photos, file.photos, (a, b) => (stamp(b) > stamp(a) ? b : a));
+    const studentIds = new Set(students.map(s => s.id)), photoIds = new Set(photos.map(p => p.id));
+    const faces = [];
+    for (const f of combine(mine.faces, file.faces, (a, b) => {
+      if (stamp(a) !== stamp(b)) return stamp(b) > stamp(a) ? b : a;
+      return a.status !== 'confirmed' && b.status === 'confirmed' ? b : a;
+    })) {
+      if (f.photoId && !photoIds.has(f.photoId) && f.status !== 'confirmed') continue;
+      if (!f.studentId || studentIds.has(f.studentId)) faces.push(f);
+      else if (f.photoId && photoIds.has(f.photoId)) faces.push({ ...f, studentId: null, status: 'unknown' });
+    }
+    // Reviews are stored under a person key, which the two sides may have chosen differently.
+    const byId = new Map(students.map(s => [s.id, s])), owners = new Map();
+    for (const s of [...(mine.students || []), ...(file.students || [])]) {
+      const k = s.personId || s.id;
+      if (!owners.has(k)) owners.set(k, []);
+      owners.get(k).push(s.id);
+    }
+    const reviews = new Map(), myReviews = new Map((mine.srs || []).map(r => [r.id, r]));
+    let newerReviews = 0;
+    for (const r of [...(mine.srs || []), ...(file.srs || [])]) {
+      const owner = (owners.get(r.id) || []).map(id => byId.get(id)).find(Boolean);
+      if (!owner) continue;
+      const key = owner.personId || owner.id, cur = reviews.get(key);
+      if (!cur || (r.last || 0) > (cur.last || 0)) reviews.set(key, { ...r, id: key });
+    }
+    for (const r of reviews.values()) if ((r.last || 0) > (myReviews.get(r.id)?.last || 0)) newerReviews++;
+    const confusions = { ...(mine.meta?.confusions || {}) };
+    for (const [k, n] of Object.entries(file.meta?.confusions || {})) confusions[k] = Math.max(confusions[k] || 0, n);
+    const myIds = new Set((mine.students || []).map(s => s.id));
+    return {
+      students, faces, photos, srs: [...reviews.values()],
+      meta: { ...(mine.meta || {}), id: 'meta', confusions, deleted,
+        lastBackup: Math.max(mine.meta?.lastBackup || 0, file.meta?.lastBackup || 0) || undefined },
+      counts: { newStudents: students.filter(s => !myIds.has(s.id)).length, removed: (mine.students || []).filter(s => !byId.has(s.id)).length, newerReviews },
+    };
+  }
+
+  // Which records of one section are already in another: the same person, or the same name or alias.
+  function planSectionMerge(from, into, personOf = s => s.id) {
+    const names = s => [s.name, ...(s.aliases || [])].map(normName);
+    const pairs = [], moves = [], taken = new Set();
+    for (const s of from) {
+      const free = into.filter(t => !taken.has(t.id));
+      const same = free.find(t => personOf(t) === personOf(s)) || free.find(t => names(t).some(n => names(s).includes(n)));
+      if (same) { pairs.push([s, same]); taken.add(same.id); } else moves.push(s);
+    }
+    return { pairs, moves };
+  }
+
   // ---------- Student files from a colleague ----------
   // What to save when adding a student file. Someone who already has a student keeps that record's person key
   // (their study progress hangs on it), notes, and any face they labeled themselves. A record with a different
@@ -508,7 +582,7 @@
 
   const Engine = {
     P, hungarian, assignWithUnknown, fitHomography, ransacHomography, applyH,
-    descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, mergeNotes, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
+    descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, mergeNotes, unionNotes, mergeBackup, planSectionMerge, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
     schedule, nameHints, formatInterval, DAY,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
