@@ -264,7 +264,7 @@ function sectionSelect(value, onChange, { all = false } = {}) {
     all ? h('option', { value: '', selected: value === '' }, 'All sections') : null,
     !all && !secs.length ? h('option', { value: '' }, 'No sections yet') : null,
     secs.map(s => h('option', { value: s, selected: s === value },
-      `Section ${s}${sectionStudents(s).some(o => o.pos || (o.row != null && o.seat != null)) ? '' : ' (no seating chart)'}`)));
+      `${s}${sectionStudents(s).some(o => o.pos || (o.row != null && o.seat != null)) ? '' : ' (no seating chart)'}`)));
 }
 
 function ensureSection() {

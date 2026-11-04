@@ -131,7 +131,7 @@ function studyHome() {
       h('div', { class: 'section-list' }, secs.map(s => {
         const sc = studyCounts(s);
         return h('button', { class: 'section-btn', onclick: () => { S.studySection = s; render(); } },
-          h('b', null, `Section ${s}`), h('span', null, `${sc.known} of ${sc.pool} known · ${sc.due} due · ${sc.fresh} not met`));
+          h('b', null, s), h('span', null, `${sc.known} of ${sc.pool} known · ${sc.due} due · ${sc.fresh} not met`));
       }))));
   }
   return wrap;
@@ -213,7 +213,7 @@ function sessionView() {
     const label = g => Engine.formatInterval(Engine.schedule(rec, g, now).due - now);
     card.append(
       h('h2', { class: 'name' }, nameLink(s)),
-      h('p', { class: 'muted' }, [`Section ${s.section}`, s.group ? `group ${s.group}` : '', seatText(s)].filter(Boolean).join(' · ')),
+      h('p', { class: 'muted' }, [s.section, s.group ? `group ${s.group}` : '', seatText(s)].filter(Boolean).join(' · ')),
       s.notes ? h('p', { class: 'facts' }, s.notes) : '',
       h('div', { class: 'grades' },
         [[1, 'Again', 'again'], [2, 'Hard', 'hard'], [3, 'Good', 'good'], [4, 'Easy', 'easy']].map(([g, t, c]) =>

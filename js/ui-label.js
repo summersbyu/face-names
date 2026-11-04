@@ -171,7 +171,7 @@ function reviewView(photo) {
       S.section = better.section;
       toast(`Moved ${others.length + 1} photo${others.length ? 's' : ''} to section ${better.section}.`);
       render();
-    } }, `Move to section ${better.section}`));
+    } }, `Move to ${better.section}`));
   wrap.append(...[header, notice, h('div', { class: 'review-main' }, scroller, panel), missing, strip].filter(Boolean));
 
   const RANK = { unknown: 0, unsure: 1, probable: 2, confident: 3, confirmed: 10, rejected: 20 };
@@ -230,7 +230,7 @@ function reviewView(photo) {
     header.replaceChildren(
       h('div', { class: 'toolbar' },
         h('button', { onclick: () => { S.reviewPhoto = null; render(); } }, '← All photos'),
-        h('b', null, `Section ${photo.section} · ${photo.date}`),
+        h('b', null, `${photo.section} · ${photo.date}`),
         h('span', { class: 'muted' }, `${fs.filter(f => f.status === 'confirmed').length} of ${fs.length} labeled`),
         h('span', { class: 'spacer' }),
         h('button', { onclick: () => setZoom(zoom / 1.5), 'aria-label': 'Zoom out' }, '−'),
@@ -240,7 +240,7 @@ function reviewView(photo) {
         h('button', { disabled: !(conf + prob), onclick: () => accept(['confident', 'probable']) }, `Accept confident + likely (${conf + prob})`),
         h('button', { onclick: async () => { await suggest(photo.id); draw(); toast('Suggestions updated.'); } }, 'Re-run suggestions'),
         h('span', { class: 'muted small' }, !hasSeats
-          ? `Section ${photo.section} has no seating chart, so only faces are being used.`
+          ? `${photo.section} has no seating chart, so only faces are being used.`
           : g && g.inliers ? `Seat map fitted from ${g.inliers} faces.`
           : 'Seat map not fitted yet (groups are still used): confirm a few faces spread across the room.')),
       h('div', { class: 'legend small' }, ['confident', 'probable', 'unsure', 'unknown', 'confirmed'].map(t =>
@@ -265,7 +265,7 @@ function reviewView(photo) {
     return h('button', { class: 'pick', onclick: onPick },
       key ? h('kbd', null, key) : null, avatarEl(sid, 44),
       h('span', { class: 'pick-text' }, h('b', null, s?.name || '?'),
-        h('small', null, [s && s.section !== photo.section ? `section ${s.section}` : '', s?.group ? `group ${s.group}` : '', extra].filter(Boolean).join(' · '))));
+        h('small', null, [s && s.section !== photo.section ? s.section : '', s?.group ? `group ${s.group}` : '', extra].filter(Boolean).join(' · '))));
   }
 
   function drawPanel() {

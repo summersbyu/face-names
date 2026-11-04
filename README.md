@@ -44,8 +44,9 @@ Your phone and computer don't sync, and opening a backup replaces what's there, 
 
 **Easiest start: seating-chart PDFs with photos.** If your charts show each student's headshot,
 first and last name, and a group.seat number (like `2.4`), use **Manage → Students → Import seating chart**
-and choose all the PDFs at once. Each one asks which section it is, suggested from the chart (e.g. `F26-1`;
-including the term keeps semesters apart). You get names, groups, seat numbers, and a photo for every
+and choose all the PDFs at once. Each one asks for a section name, suggested from the chart (e.g. `F26-1`).
+Sections appear by name alone, so give each its own name, with the term to keep semesters apart. Using a name
+that's already there asks whether to update that section. You get names, groups, seat numbers, and a photo for every
 student, and the positions on the chart become the room's seat map for matching class photos.
 Students whose chart shows "Picture not available" are listed in the import report; add their photo from
 their student card.
@@ -57,7 +58,7 @@ their student card.
 3. Press **Ctrl+S**, choose **Webpage, Complete**, and save into that folder. Repeat for each section.
 4. In the app: **Manage → Students → Import picture roll**, and choose the folder. The browser asks
    permission to read the folder's files. The files are read only on your computer and never uploaded.
-   Each page asks which section it is (pre-filled from the page).
+   Each page asks for a section name (suggested from the page, e.g. `W27-1`).
 
 Students are listed by preferred name ("Allen Rivera"); their legal name ("James Allen Rivera")
 is kept so roster and seating-chart files can use either. Importing a page again updates the same
