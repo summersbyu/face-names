@@ -43,19 +43,19 @@ Your phone and computer don't sync, and opening a backup replaces what's there, 
 ## What to prepare
 
 **Easiest start: seating-chart PDFs with photos.** If your charts show each student's headshot,
-first and last name, and a group.seat number (like `2.4`), use **Students → Import seating-chart PDFs**
+first and last name, and a group.seat number (like `2.4`), use **Manage → Students → Import seating chart**
 and choose all the PDFs at once. Each one asks which section it is, suggested from the chart (e.g. `F26-1`;
 including the term keeps semesters apart). You get names, groups, seat numbers, and a photo for every
 student, and the positions on the chart become the room's seat map for matching class photos.
 Students whose chart shows "Picture not available" are listed in the import report; add their photo from
 their student card.
 
-**Or: your class photo roll pages.** These bring in names, preferred names, and photos in one step:
+**Or: your picture roll (the class photo roll pages).** These bring in names, preferred names, and photos in one step:
 
 1. Make an empty folder, e.g. `Class rolls`.
 2. Open a section's class photo roll in Chrome or Edge and scroll to the bottom so every photo loads.
 3. Press **Ctrl+S**, choose **Webpage, Complete**, and save into that folder. Repeat for each section.
-4. In the app: **Students → Import saved roll pages**, and choose the folder. The browser asks
+4. In the app: **Manage → Students → Import picture roll**, and choose the folder. The browser asks
    permission to read the folder's files. The files are read only on your computer and never uploaded.
    Each page asks which section it is (pre-filled from the page).
 
@@ -70,6 +70,10 @@ known in winter, and every class photo you label now adds to their flashcards ne
 shows "also F26-2" next to linked students. If a chart and a roll hold the same picture at different
 resolutions, only the largest, sharpest copy is kept; class photos are never removed. Open a student to undo a wrong link ("Not the same person") or to
 link one by hand after a name change (the closest-looking faces are listed first).
+
+**Under Manage → Sections** you can rename or delete a section. To drop one student from a section, open the
+student and click **Drop from section**. Someone also in other sections stays there with their photos and progress;
+if it's their only section, their record is removed. Importing that section's chart or roll again brings them back.
 
 Then add groups, seats, and facts with the files below (optional). They update the same students.
 
@@ -87,7 +91,8 @@ Section,First Name,Last Name,Group,Row,Seat,Hometown,Major
 
 **2. Seating chart** (optional but recommended), either:
 - `Row` and `Seat` columns in the roster CSV, or
-- a separate CSV per section laid out like the room, one name per cell, blank for empty seats:
+- a separate CSV per section laid out like the room, one name per cell, blank for empty seats. Use **Import seating
+  chart**, the same button as for PDFs; it seats students already in the section and asks which section:
   ```
   Maria Garcia,Sam Lee,,Ana Ruiz,Ben Cho
   Tom Hale,Ivy Park,,Jo Kim,Raj Patel
@@ -101,7 +106,7 @@ are listed first so you can pick the student by hand. A photo that duplicates on
 Students without a photo can still be
 labeled from class photos; the seating chart suggests who they probably are.
 
-On the **Students** tab, the search box finds a student in any section by first, last, or legal name. The
+On **Manage → Students**, the search box finds a student in any section by first, last, or legal name. The
 seating chart shows your progress: **green = known**, **amber = learning**,
 **white = not met yet**. Linked students show the same color in every section.
 
@@ -112,7 +117,7 @@ seating chart shows your progress: **green = known**, **amber = learning**,
 
 ## Labeling a class photo
 
-Under **Label photos**, choose the section and date, then add the photo(s). **Choose the semester the photo
+Under **Manage → Class Photos**, choose the section and date, then add the photo(s). **Choose the semester the photo
 was taken in** (e.g. `F26-1`, not next semester's `1`): only that roster is considered, and sections without
 a chart are marked "(no seating chart)". If the faces clearly fit another section, the app says so and offers
 to move the photo. It finds every face and suggests a name using three clues:

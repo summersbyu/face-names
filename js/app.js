@@ -198,6 +198,41 @@ async function unlinkStudent(s) {
   reindex();
 }
 
+// Removes one section's record of a student. Someone also in other sections keeps their photos and progress there.
+async function dropRecord(s) {
+  const key = personOf(s.id), heir = linkedOf(s.id)[0];
+  const mine = [...S.faces.values()].filter(f => f.studentId === s.id);
+  const unlabeled = f => ({ ...f, studentId: null, status: f.status === 'rejected' ? 'rejected' : 'unknown' });
+  if (heir) {
+    await saveFaces(mine.map(f => (f.status === 'confirmed' ? { ...f, studentId: heir.id } : unlabeled(f))));
+  } else {
+    await deleteFaces(mine.filter(f => f.kind === 'reference' || !f.photoId).map(f => f.id));
+    await saveFaces(mine.filter(f => f.kind !== 'reference' && f.photoId).map(unlabeled));
+    if (S.srs.delete(key)) await DB.del('srs', key);
+  }
+  S.students.delete(s.id);
+  await DB.del('students', s.id);
+  reindex();
+}
+
+async function renameSection(from, to) {
+  await saveStudents(sectionStudents(from).map(s => ({ ...s, section: to })));
+  await saveFaces([...S.faces.values()].filter(f => f.section === from).map(f => ({ ...f, section: to })));
+  for (const p of S.photos.values()) if (p.section === from) { p.section = to; await DB.put('photos', p); }
+  if (S.section === from) S.section = to;
+}
+
+// Class photos go with the section; a labeled face stays on the flashcards of anyone who's still here.
+async function deleteSection(sec) {
+  for (const s of sectionStudents(sec)) await dropRecord(s);
+  const photos = [...S.photos.values()].filter(p => p.section === sec), ids = new Set(photos.map(p => p.id));
+  const faces = [...S.faces.values()].filter(f => ids.has(f.photoId));
+  const kept = f => f.status === 'confirmed' && f.studentId;
+  await saveFaces(faces.filter(kept).map(f => ({ ...f, photoId: null })));
+  await deleteFaces(faces.filter(f => !kept(f)).map(f => f.id));
+  for (const p of photos) { S.photos.delete(p.id); await DB.del('photos', p.id); }
+}
+
 const sections = () => [...new Set([...S.students.values()].map(s => s.section))].sort(naturalSort);
 const sectionStudents = sec => [...S.students.values()].filter(s => !sec || s.section === sec).sort((a, b) => naturalSort(a.name, b.name));
 const facesOf = sid => S.byStudent.get(sid) || [];
@@ -238,17 +273,29 @@ function ensureSection() {
 }
 
 // ---------- Navigation ----------
-const TABS = [['study', 'Study'], ['label', 'Label photos'], ['roster', 'Students'], ['backup', 'Backup']];
+const MANAGE = [['roster', 'Students'], ['sections', 'Sections'], ['label', 'Class Photos']];
+const TABS = [['study', 'Study'], ['manage', 'Manage'], ['backup', 'Backup']];
+const inManage = view => MANAGE.some(([id]) => id === view);
+let lastManage = 'roster';
+const goTo = view => { S.view = view; S.reviewPhoto = null; S.meet = null; render(); };
+
+function manageNav() {
+  return h('nav', { class: 'subtabs', 'aria-label': 'Manage' }, MANAGE.map(([id, label]) =>
+    h('button', { class: S.view === id ? 'subtab active' : 'subtab', 'aria-current': S.view === id ? 'page' : null, onclick: () => goTo(id) }, label)));
+}
 
 function render() {
   S.onKey = null;
   ensureSection();
   const nav = $('#tabs');
+  const managing = inManage(S.view);
+  if (managing) lastManage = S.view;
+  const current = managing ? 'manage' : S.view;
   nav.replaceChildren(...TABS.map(([id, label]) =>
-    h('button', { class: S.view === id ? 'tab active' : 'tab', 'aria-current': S.view === id ? 'page' : null,
-      onclick: () => { S.view = id; S.reviewPhoto = null; S.meet = null; render(); } }, label)));
+    h('button', { class: current === id ? 'tab active' : 'tab', 'aria-current': current === id ? 'page' : null,
+      onclick: () => goTo(id === 'manage' ? lastManage : id) }, label)));
   const main = $('#main');
-  main.replaceChildren(VIEWS[S.view]());
+  main.replaceChildren(...(managing ? [manageNav()] : []), VIEWS[S.view]());
   try { localStorage.setItem('fn-view', JSON.stringify({ view: S.view, section: S.section })); } catch {}
 }
 

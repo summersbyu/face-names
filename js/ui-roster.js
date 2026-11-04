@@ -1,4 +1,4 @@
-/* Students view: roster import, seating chart, roster photos, student details. */
+/* Manage: students (imports, seating chart, roster photos, student details) and sections. */
 
 function promptBox(title, label, value = '') {
   return new Promise(resolve => {
@@ -19,17 +19,17 @@ function promptBox(title, label, value = '') {
 function formatHelp() {
   return h('details', { class: 'help' },
     h('summary', null, 'File formats'),
-    h('h4', null, 'Seating-chart PDFs'),
+    h('h4', null, 'Seating chart: PDF with photos'),
     h('p', null, 'Charts with a headshot, first name, last name, and a “group.seat” number (like 2.4) for each student. ',
       'Choose all the PDFs at once; each asks which section it is (suggested from the chart, e.g. “F26-1”). ',
       'Students’ positions on the chart become the room’s seat map for matching class photos. ',
       'Importing a chart again updates the same students and replaces their chart photo.'),
-    h('h4', null, 'Saved class photo roll pages'),
+    h('h4', null, 'Picture roll'),
     h('ol', null,
       h('li', null, 'Make an empty folder, e.g. “Class rolls”.'),
       h('li', null, 'Open a section’s class photo roll in Chrome or Edge and scroll to the bottom so every photo loads.'),
       h('li', null, 'Press Ctrl+S, choose “Webpage, Complete”, and save into that folder. Repeat for each section.'),
-      h('li', null, 'Click ', h('b', null, 'Import saved roll pages'), ' and choose the folder. Names, preferred names, and photos come in together; each page asks which section it is.')),
+      h('li', null, 'Click ', h('b', null, 'Import picture roll'), ' and choose the folder. Names, preferred names, and photos come in together; each page asks which section it is.')),
     h('p', null, 'Students are listed by preferred name (“Allen Rivera”); their legal name still matches in roster and seating-chart files. ',
       'Importing a page again updates the same students and replaces their roll photo.'),
     h('h4', null, 'Roster CSV (one row per student)'),
@@ -38,17 +38,17 @@ function formatHelp() {
       '. Any other columns (hometown, major…) are kept as facts shown on the flashcards. Only Name is required. ',
       'Importing again updates existing students instead of duplicating them.'),
     h('pre', null, 'Section,First Name,Last Name,Group,Row,Seat,Hometown\n1,Maria,Garcia,A,1,1,"Mesa, AZ"\n1,Sam,Lee,A,1,2,Boise'),
-    h('h4', null, 'Seating chart CSV (laid out like the room)'),
+    h('h4', null, 'Seating chart: CSV laid out like the room'),
     h('p', null, 'No header. Each cell is a student’s name, placed where they sit; leave empty seats blank. ',
       'First names or “Maria G” work if they’re unique in the section. Which edge is the front doesn’t matter, ',
-      'as long as the grid matches the room. Imported into the section selected above.'),
+      'as long as the grid matches the room. This only seats students already in the section, so import them first; it asks which section.'),
     h('pre', null, 'Maria Garcia,Sam Lee,,Ana Ruiz,Ben Cho\nTom Hale,Ivy Park,,Jo Kim,Raj Patel'),
     h('h4', null, 'Student photos'),
     h('p', null, 'One photo per person (roster photos or headshots). Name the files after the student (',
       h('code', null, 'Maria Garcia.jpg'), ') or list the file name in the roster’s Photo column, and they’re matched automatically.'));
 }
 
-// Search box for the Students tab: looks through every section, one row per person. The text stays through re-renders.
+// Search box for the Students page: looks through every section, one row per person. The text stays through re-renders.
 let studentQuery = '';
 function studentSearch() {
   const results = h('div', { class: 'search-results' });
@@ -80,10 +80,9 @@ VIEWS.roster = () => {
   const wrap = h('div', { class: 'view' });
   wrap.append(h('div', { class: 'toolbar' },
     secs.length ? sectionSelect(S.section, v => { S.section = v; render(); }) : null,
-    h('button', { class: 'primary', onclick: importSeatingPdfs }, 'Import seating-chart PDFs'),
-    h('button', { class: 'needs-computer', onclick: importRollPages }, 'Import saved roll pages'),
+    h('button', { class: 'primary', onclick: importSeatingCharts }, 'Import seating chart'),
+    h('button', { class: 'needs-computer', onclick: importRollPages }, 'Import picture roll'),
     h('button', { onclick: importRoster }, 'Import roster CSV'),
-    h('button', { onclick: importSeating, disabled: !S.section }, 'Import seating chart'),
     h('button', { onclick: addPortraits, disabled: !S.students.size }, 'Add student photos'),
     h('button', { onclick: () => editStudent(null) }, 'Add student')));
 
@@ -91,13 +90,13 @@ VIEWS.roster = () => {
     wrap.append(h('div', { class: 'card intro' },
       h('h2', null, 'Getting started'),
       h('ol', null,
-        h('li', null, 'If you have seating-chart PDFs with photos, click ', h('b', null, 'Import seating-chart PDFs'),
+        h('li', null, 'If you have seating-chart PDFs with photos, click ', h('b', null, 'Import seating chart'),
           '. Names, groups, seats, and a photo of each student come in together.'),
         h('li', { class: 'needs-computer' }, 'Or save each section’s class photo roll page (Ctrl+S → “Webpage, Complete”) into one folder and click ',
-          h('b', null, 'Import saved roll pages'), '. “File formats” below has the details.'),
+          h('b', null, 'Import picture roll'), '. “File formats” below has the details.'),
         h('li', null, 'Optionally import a roster CSV with groups, seats, and facts for the flashcards. It updates the same students.'),
-        h('li', null, 'Optionally import each section’s seating chart, laid out like the room.'),
-        h('li', null, 'Under ', h('b', null, 'Label photos'), ', add class photos. The app suggests a name for every face; you confirm or fix them.'),
+        h('li', null, 'Optionally import a CSV seating chart for each section, laid out like the room.'),
+        h('li', null, 'Under ', h('b', null, 'Class Photos'), ', add class photos. The app suggests a name for every face; you confirm or fix them.'),
         h('li', null, 'Under ', h('b', null, 'Study'), ', practice faces → names. It schedules reviews and drills the people you mix up.')),
       h('p', null, 'Already have a backup or a student file from a colleague? Open it from the ', h('b', null, 'Backup'), ' tab.'),
       h('p', { class: 'muted' }, 'Everything is stored only in this browser on this device. Use Backup to save a copy.')),
@@ -172,7 +171,10 @@ function floorPlan(placed) {
 
 async function importRoster() {
   const [file] = await pickFiles({ accept: '.csv,.tsv,.txt,text/csv' });
-  if (!file) return;
+  if (file) await importRosterFile(file);
+}
+
+async function importRosterFile(file) {
   const { records, columns } = Engine.rosterFromCSV(Engine.parseCSV(await file.text()));
   if (!('name' in columns) && !('first' in columns)) {
     toast('Couldn’t find a Name (or First Name / Last Name) column. See “File formats.”', 6000);
@@ -208,11 +210,36 @@ async function importRoster() {
   render();
 }
 
-async function importSeating() {
-  const sec = S.section;
-  const [file] = await pickFiles({ accept: '.csv,.tsv,.txt,text/csv' });
-  if (!file) return;
+function pickSection(message) {
+  return new Promise(resolve => {
+    let out = null;
+    const select = h('select', { 'aria-label': 'Section' }, sections().map(x => h('option', { value: x, selected: x === S.section }, `Section ${x}`)));
+    const dlg = modal('Which section?', h('label', { class: 'field' }, message, select), {
+      actions: [
+        h('button', { onclick: () => dlg.close() }, 'Cancel'),
+        h('button', { class: 'primary', onclick: () => { out = select.value; dlg.close(); } }, 'OK'),
+      ],
+      onClose: () => resolve(out),
+    });
+  });
+}
+
+// One button for both kinds of chart. A PDF brings in students, photos, and seats; a CSV seats students already here.
+async function importSeatingCharts() {
+  const files = await pickFiles({ accept: '.pdf,.csv,.tsv,.txt,application/pdf,text/csv', multiple: true });
+  const isPdf = f => /\.pdf$/i.test(f.name);
+  if (files.some(isPdf)) await importSeatingPdfs(files.filter(isPdf));
+  for (const file of files.filter(f => !isPdf(f))) await importSeatingCsv(file);
+}
+
+async function importSeatingCsv(file) {
   const rows = Engine.parseCSV(await file.text());
+  const { columns } = Engine.rosterFromCSV(rows);
+  if ('name' in columns || 'first' in columns) { await importRosterFile(file); return; }  // a roster, by its header row
+  if (!sections().length) { toast('A CSV chart seats students already here. Import a roster, picture roll, or PDF chart first.', 7000); return; }
+  const sec = await pickSection(`${file.name}: seat students in section:`);
+  if (!sec) return;
+  S.section = sec;
   const students = sectionStudents(sec);
   const placed = new Map(), unmatched = [], dupes = [];
   rows.forEach((row, r) => row.forEach((cell, c) => {
@@ -315,7 +342,7 @@ function editStudent(s) {
     h('img', { src: fc.thumb, alt: '', width: 96, height: 96 }),
     h('figcaption', null, `${fc.kind !== 'reference' ? 'Class' : fc.source === 'chart' ? 'Chart' : fc.source === 'roll' ? 'Roll' : 'Photo'} · ${fc.date || ''}${fc.studentId !== s.id ? ` · ${S.students.get(fc.studentId)?.section || ''}` : ''}`,
       h('button', { class: 'link', title: 'Not this student', onclick: async () => {
-        if (fc.kind === 'reference') await deleteFaces([fc.id]);
+        if (fc.kind === 'reference' || !fc.photoId) await deleteFaces([fc.id]);
         else await saveFaces([{ ...fc, status: 'unknown', studentId: null }]);
         drawFaces();
       } }, 'Remove')))));
@@ -338,7 +365,9 @@ function editStudent(s) {
     const name = f.name.value.trim();
     if (!name) { toast('Name is required.'); return; }
     const num = el => (el.value === '' ? null : +el.value);
-    Object.assign(s, { name, section: f.section.value.trim() || '1', group: f.group.value.trim(),
+    const section = f.section.value.trim() || '1';
+    if (linkedOf(s.id).some(o => o.section === section)) { toast(`${name} is already in section ${section}.`); return; }
+    Object.assign(s, { name, section, group: f.group.value.trim(),
       row: num(f.row), seat: num(f.seat), notes: f.notes.value });
     await saveStudents([s]);
     await linkStudents();
@@ -346,14 +375,13 @@ function editStudent(s) {
     render();
   };
   const del = async () => {
-    if (!(await confirmBox(`Delete ${s.name}? Their roster photos and study history are removed; faces in class photos become unlabeled.`, 'Delete', true))) return;
-    const mine = [...S.faces.values()].filter(fc => fc.studentId === s.id);
-    await deleteFaces(mine.filter(fc => fc.kind === 'reference').map(fc => fc.id));
-    await saveFaces(mine.filter(fc => fc.kind !== 'reference').map(fc => ({ ...fc, studentId: null, status: 'unknown' })));
-    const key = personOf(s.id), shared = linkedOf(s.id).length;
-    S.students.delete(s.id); await DB.del('students', s.id);
-    if (!shared) { S.srs.delete(key); await DB.del('srs', key); }
-    reindex();
+    const here = S.students.get(s.id), others = linkedOf(s.id).map(o => o.section);
+    const msg = others.length
+      ? `Drop ${here.name} from section ${here.section}? They stay in section ${others.join(', ')}, with their photos and study progress.`
+      : `Drop ${here.name} from section ${here.section}? It’s their only section, so their roster photos and study history are removed, and faces in class photos become unlabeled.`;
+    if (!(await confirmBox(msg, 'Drop', true))) return;
+    await dropRecord(here);
+    if (!sectionStudents(here.section).length) await deleteSection(here.section);  // the last one out: nothing else could show its photos
     dlg.close();
     render();
   };
@@ -367,18 +395,62 @@ function editStudent(s) {
       h('label', { class: 'field' }, 'Seat', f.seat)),
     h('label', { class: 'field' }, 'Notes and facts (shown on the flashcard)', f.notes),
     isNew || !linkedOf(s.id).length ? null : h('p', { class: 'muted small' },
-      `Same student as ${linkedOf(s.id).map(o => `${o.name} in section ${o.section}`).join(', ')}: photos and study progress are shared. `,
+      `Also in ${linkedOf(s.id).map(o => `section ${o.section}${o.name === s.name ? '' : ` (as ${o.name})`}`).join(', ')}: this is one student, with shared photos and study progress. `,
       h('button', { class: 'link', onclick: async () => { await unlinkStudent(S.students.get(s.id)); dlg.close(); render(); toast('Unlinked.'); } }, 'Not the same person')),
     isNew ? null : linkPicker(s, dlg => dlg.close(), () => dlg),
     isNew ? null : h('div', null, h('h4', null, 'Photos'), faceGrid, addPhoto)),
   { wide: true, onClose: () => { if (S.view === 'study') render(); }, actions: [
-    isNew ? null : h('button', { class: 'danger left', onclick: del }, 'Delete student'),
+    isNew ? null : h('button', { class: 'danger left', onclick: del }, `Drop from section ${s.section}`),
     h('button', { onclick: () => dlg.close() }, 'Cancel'),
     h('button', { class: 'primary', onclick: save }, 'Save')] });
   (isNew ? f.name : f.notes).focus();
 }
 
-// ---------- Saved class photo roll pages ----------
+// ---------- Sections ----------
+
+VIEWS.sections = () => {
+  const wrap = h('div', { class: 'view' });
+  if (!S.students.size) {
+    wrap.append(h('div', { class: 'card' }, h('p', null, 'Sections appear here once you’ve imported students.'),
+      h('button', { class: 'primary', onclick: () => goTo('roster') }, 'Go to Students')));
+    return wrap;
+  }
+  const rename = async sec => {
+    const to = await promptBox('Rename section', `New name for section ${sec}:`, sec);
+    if (!to || to === sec) return;
+    if (sections().includes(to)) { toast(`There’s already a section ${to}. Choose a different name.`, 5000); return; }
+    await renameSection(sec, to);
+    render();
+    toast(`Renamed to section ${to}.`);
+  };
+  const remove = async sec => {
+    const list = sectionStudents(sec), elsewhere = list.filter(s => linkedOf(s.id).length).length, only = list.length - elsewhere;
+    const photos = [...S.photos.values()].filter(p => p.section === sec).length;
+    const msg = [`Delete section ${sec}? This can’t be undone, so save a backup first if you may want it back.`,
+      only ? `${only} student${only === 1 ? '' : 's'} in no other section will be removed, with their photos and study progress.` : '',
+      elsewhere ? `${elsewhere} also in other sections will stay there, with their photos and progress.` : '',
+      photos ? `${photos} class photo${photos === 1 ? '' : 's'} will be deleted; faces labeled in them stay on the flashcards of students who remain.` : ''].filter(Boolean).join(' ');
+    if (!(await confirmBox(msg, 'Delete section', true))) return;
+    await deleteSection(sec);
+    render();
+    toast(`Deleted section ${sec}.`);
+  };
+  wrap.append(h('div', { class: 'card' },
+    h('h3', null, `${sections().length} section${sections().length === 1 ? '' : 's'}`),
+    h('div', { class: 'section-rows' }, sections().map(sec => {
+      const list = sectionStudents(sec), photos = [...S.photos.values()].filter(p => p.section === sec).length;
+      return h('div', { class: 'section-row' },
+        h('span', null, h('b', null, `Section ${sec}`), h('span', { class: 'muted small' },
+          ` · ${list.length} student${list.length === 1 ? '' : 's'} · ${photos} class photo${photos === 1 ? '' : 's'}`)),
+        h('span', { class: 'toolbar' },
+          h('button', { onclick: () => rename(sec) }, 'Rename'),
+          h('button', { class: 'danger', onclick: () => remove(sec) }, 'Delete')));
+    }))),
+    h('p', { class: 'muted small' }, 'A student in several sections or classes is one student: their records are linked by name, so photos and study progress are shared and they’re only studied once. Open a student to check or undo a link.'));
+  return wrap;
+};
+
+// ---------- Picture roll: saved class photo roll pages ----------
 
 const normPath = p => {
   const out = [];
@@ -494,7 +566,7 @@ async function importRollFiles(entries) {
   const dupes = await removeDuplicatePhotos();
   if (dupes) report.push(`Removed ${dupes} duplicate photos (the same picture at a lower resolution).`);
   render();
-  modal('Class roll import', h('div', null, report.map(r => h('p', null, r))));
+  modal('Picture roll import', h('div', null, report.map(r => h('p', null, r))));
 }
 
 // Link by hand, e.g. after a name change: pick the same student's record in another section.
@@ -523,9 +595,7 @@ function linkPicker(s, close, getDlg) {
 
 // ---------- Seating-chart PDFs ----------
 
-async function importSeatingPdfs() {
-  const files = await pickFiles({ accept: '.pdf,application/pdf', multiple: true });
-  if (!files.length) return;
+async function importSeatingPdfs(files) {
   const report = [];
   for (const file of files.sort((a, b) => naturalSort(a.name, b.name))) {
     const status = h('p', { class: 'progress' }, `Reading ${file.name}…`);

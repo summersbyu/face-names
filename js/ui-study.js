@@ -84,8 +84,8 @@ function studyHome() {
   if (!S.byStudent.size) {
     wrap.append(h('div', { class: 'card' },
       h('h2', null, 'Nothing to study yet'),
-      h('p', null, 'Flashcards are made from student photos. Add roster photos under Students, or label a class photo under Label photos.'),
-      h('button', { class: 'primary', onclick: () => { S.view = 'roster'; render(); } }, 'Go to Students')));
+      h('p', null, 'Flashcards are made from student photos. Under Manage, add students with their photos, or label a class photo.'),
+      h('button', { class: 'primary', onclick: () => goTo('roster') }, 'Go to Manage')));
     return wrap;
   }
   const sec = S.studySection ?? '';

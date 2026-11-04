@@ -1,4 +1,4 @@
-/* Label photos view: add class photos, review suggested names, confirm. */
+/* Class Photos view: add class photos, review suggested names, confirm. */
 
 const photoUrls = new Map();
 function photoUrl(id) {
@@ -76,7 +76,7 @@ function photoListView() {
   const wrap = h('div', { class: 'view' });
   if (!S.students.size) {
     wrap.append(h('div', { class: 'card' }, h('p', null, 'Import your roster first, so the app knows who to look for.'),
-      h('button', { class: 'primary', onclick: () => { S.view = 'roster'; render(); } }, 'Go to Students')));
+      h('button', { class: 'primary', onclick: () => goTo('roster') }, 'Go to Students')));
     return wrap;
   }
   const date = h('input', { type: 'date', value: today(), 'aria-label': 'Date taken' });
