@@ -471,10 +471,12 @@ function meetView() {
         class: `choice${M.picked && id === sid ? ' right' : ''}${wrong && id === M.picked ? ' wrong' : ''}`,
         disabled: !!M.picked && id !== sid && id !== M.picked, onclick: () => choose(id),
       }, i < 10 ? h('kbd', null, String((i + 1) % 10)) : null, name(id)))),
+      wrong && S.students.get(sid).notes ? notesArea(S.students.get(sid)) : '',
       wrong ? h('button', { class: 'primary', onclick: advance }, 'Next', h('span', { class: 'key-hint' }, ' (Enter)')) : '');
     S.onKey = (e, typing) => {
       if (typing) return;
       if (wrong && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); advance(); return; }
+      if (wrong && e.key.toLowerCase() === 'n') { toggleNotes(); return; }
       if (/^[0-9]$/.test(e.key)) { const i = e.key === '0' ? 9 : +e.key - 1; if (options[i]) choose(options[i]); }
     };
   } else {

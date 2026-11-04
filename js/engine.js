@@ -399,6 +399,15 @@
     return null;
   }
 
+  // Notes after a roster import. The file's facts replace what the last import added; anything typed stays, first.
+  // Records from before imports were tracked can't be told apart, so nothing is removed from them.
+  function mergeNotes(current, lastImport, fromFile) {
+    const cur = String(current || '').trim(), last = String(lastImport || '').trim(), next = String(fromFile || '').trim();
+    const typed = (last && cur.includes(last) ? cur.replace(last, '') : cur).trim();
+    if (next && typed.includes(next)) return typed;
+    return [typed, next].filter(Boolean).join('\n');
+  }
+
   // ---------- Student files from a colleague ----------
   // What to save when adding a student file. Someone who already has a student keeps that record's person key
   // (their study progress hangs on it), notes, and any face they labeled themselves. A record with a different
@@ -411,7 +420,7 @@
     const remap = new Map(), students = [];
     for (const s of file.students) {
       const same = byId.get(s.id);
-      if (same) students.push({ ...s, personId: same.personId, notes: same.notes || s.notes });
+      if (same) students.push({ ...s, personId: same.personId, notes: same.notes || s.notes, fileNotes: same.notes ? same.fileNotes : s.fileNotes });
       else if (byName.has(key(s))) remap.set(s.id, byName.get(key(s)).id);
       else students.push(s);
     }
@@ -499,7 +508,7 @@
 
   const Engine = {
     P, hungarian, assignWithUnknown, fitHomography, ransacHomography, applyH,
-    descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
+    descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, mergeNotes, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
     schedule, nameHints, formatInterval, DAY,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;

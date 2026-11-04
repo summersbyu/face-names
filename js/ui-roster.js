@@ -50,7 +50,7 @@ function formatHelp() {
     h('p', null, 'Needs a header row. Recognized columns: ', h('code', null, 'Section, Name'), ' (or ',
       h('code', null, 'First Name, Last Name'), '), ', h('code', null, 'Group, Row, Seat, Photo, Notes'),
       '. Any other columns (hometown, major…) are kept as facts shown on the flashcards. Only Name is required. ',
-      'Importing again updates existing students instead of duplicating them.'),
+      'Importing again updates existing students instead of duplicating them, and notes you typed yourself are kept.'),
     h('pre', null, 'Section,First Name,Last Name,Group,Row,Seat,Hometown\n1,Maria,Garcia,A,1,1,"Mesa, AZ"\n1,Sam,Lee,A,1,2,Boise'),
     h('h4', null, 'Seating chart: CSV laid out like the room'),
     h('p', null, 'No header. Each cell is a student’s name, placed where they sit; leave empty seats blank. ',
@@ -213,7 +213,7 @@ async function importRosterFile(file) {
     if (r.has.group) s.group = r.group;
     if (r.has.row) s.row = r.row;
     if (r.has.seat) s.seat = r.seat;
-    if (r.has.notes) s.notes = r.notes;
+    if (r.has.notes) { s.notes = Engine.mergeNotes(s.notes, s.fileNotes, r.notes); s.fileNotes = r.notes; }
     if (r.photo) s.photoFile = r.photo;
     out.push(s);
   }

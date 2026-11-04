@@ -37,7 +37,7 @@ VIEWS.backup = () => {
   // Students, photos, and labels for a colleague. Study progress and mix-ups stay out: they're in srs and meta.
   const exportStudents = async () => {
     status.textContent = 'Preparing student file…';
-    const students = [...S.students.values()].map(s => (shareNotes.checked ? s : { ...s, notes: '' }));
+    const students = [...S.students.values()].map(s => (shareNotes.checked ? s : { ...s, notes: '', fileNotes: '' }));
     download({ app: 'face-names', version: 1, kind: 'students', exported: new Date().toISOString(),
       students, faces: [...S.faces.values()], photos: await photoData(sharePhotos.checked) }, `face-names-students-${today()}.json`);
     status.textContent = '';
