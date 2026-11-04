@@ -1,0 +1,19 @@
+FACE NAMES - learn your students' names from their faces
+
+To start:
+1. Unzip this folder first (right-click the zip, then Extract All / Open With Archive Utility).
+   Don't run it from inside the zip: anything you enter could be lost.
+2. Move the folder somewhere permanent, such as Documents. The app's data is tied to this location.
+3. Double-click index.html. It should open in Chrome or Edge. If it opens somewhere else,
+   right-click it and choose Open with Chrome or Edge.
+
+No internet connection is needed. Or skip all of this and open https://summersbyu.github.io/face-names/
+in any browser, including on a phone.
+
+Your students' names and photos stay in your browser on your computer. Nothing is uploaded.
+Use the Backup tab to save a copy, and keep that file private: it contains your students' photos.
+
+If a colleague gave you a student file: open the Backup tab, click Open a file, and choose it.
+It brings in the students and photos. Your own study progress starts fresh and is yours alone.
+
+README.md has the full instructions. It opens in any text editor.
