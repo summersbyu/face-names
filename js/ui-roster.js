@@ -43,7 +43,7 @@ function formatHelp() {
       h('li', null, 'Make an empty folder, e.g. “Class rolls”.'),
       h('li', null, 'Open a section’s class photo roll in Chrome or Edge and scroll to the bottom so every photo loads.'),
       h('li', null, 'Press Ctrl+S, choose “Webpage, Complete”, and save into that folder. Repeat for each section.'),
-      h('li', null, 'Click ', h('b', null, 'Import picture roll'), ' and choose the folder. Names, preferred names, and photos come in together; each page asks for a section name.')),
+      h('li', null, 'Click ', h('b', null, 'Import picture roll'), ' and choose that folder, the one holding the page and its _files folder. Names, preferred names, and photos come in together; each page asks for a section name.')),
     h('p', null, 'Students are listed by preferred name (“Allen Rivera”); their legal name still matches in roster and seating-chart files. ',
       'Importing a page again updates the same students and replaces their roll photo.'),
     h('h4', null, 'Roster CSV (one row per student)'),
@@ -572,7 +572,24 @@ function readRollPage(html) {
 
 async function importRollPages() {
   const files = await pickFiles({ directory: true });
-  if (files.length) await importRollFiles(files.map(f => ({ path: f.webkitRelativePath || f.name, file: f })));
+  if (!files.length) return;
+  const entries = files.map(f => ({ path: f.webkitRelativePath || f.name, file: f }));
+  const folder = entries[0].path.split('/')[0];
+  // "Webpage, Complete" saves the page beside its _files folder, not inside it. Picking that folder is an easy mistake.
+  if (entries.some(e => /\.html?$/i.test(e.path)) || !/_files$/i.test(folder)) { await importRollFiles(entries); return; }
+  const page = folder.replace(/_files$/i, '');
+  const dlg = modal('One more step', h('div', null,
+    h('p', null, `“${folder}” holds the photos. The page itself is saved right beside that folder, as “${page}.html”.`),
+    h('p', { class: 'muted small' }, 'For several sections at once, put each page and its folder into one folder and choose that instead.')), {
+    actions: [
+      h('button', { onclick: () => dlg.close() }, 'Cancel'),
+      h('button', { class: 'primary', onclick: async () => {
+        const pages = await pickFiles({ accept: '.html,.htm,text/html', multiple: true });
+        dlg.close();
+        if (pages.length) await importRollFiles([...pages.map(f => ({ path: f.name, file: f })), ...entries]);
+      } }, 'Choose the page'),
+    ],
+  });
 }
 
 // entries: [{ path, file }] for every file in the chosen folder (pages and their _files folders).
@@ -585,7 +602,7 @@ async function importRollFiles(entries) {
   }
   const pages = entries.filter(e => /\.html?$/i.test(e.path)).sort((a, b) => naturalSort(a.path, b.path));
   if (!pages.length) {
-    toast('No saved web pages (.html) in that folder. Save the roll page with Ctrl+S → “Webpage, Complete”.', 8000);
+    toast('No saved web pages (.html) in that folder. Choose the folder that holds the saved page and its _files folder.', 8000);
     return;
   }
   const report = [];

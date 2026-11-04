@@ -58,7 +58,8 @@ their student card.
 1. Make an empty folder, e.g. `Class rolls`.
 2. Open a section's class photo roll in Chrome or Edge and scroll to the bottom so every photo loads.
 3. Press **Ctrl+S**, choose **Webpage, Complete**, and save into that folder. Repeat for each section.
-4. In the app: **Manage → Students → Import picture roll**, and choose the folder. The browser asks
+4. In the app: **Manage → Students → Import picture roll**, and choose that folder, the one holding each page and its
+   `_files` folder. If you choose a `_files` folder by itself, the app asks you to pick its page too. The browser asks
    permission to read the folder's files. The files are read only on your computer and never uploaded.
    Each page asks for a section name (suggested from the page, e.g. `W27-1`).
 
