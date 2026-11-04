@@ -99,7 +99,8 @@ VIEWS.roster = () => {
         h('li', null, 'Optionally import each section’s seating chart, laid out like the room.'),
         h('li', null, 'Under ', h('b', null, 'Label photos'), ', add class photos. The app suggests a name for every face; you confirm or fix them.'),
         h('li', null, 'Under ', h('b', null, 'Study'), ', practice faces → names. It schedules reviews and drills the people you mix up.')),
-      h('p', { class: 'muted' }, 'Everything is stored only in this browser on this computer. Use Backup to save a copy.')),
+      h('p', null, 'Already have a backup or a student file from a colleague? Open it from the ', h('b', null, 'Backup'), ' tab.'),
+      h('p', { class: 'muted' }, 'Everything is stored only in this browser on this device. Use Backup to save a copy.')),
       formatHelp());
     return wrap;
   }
