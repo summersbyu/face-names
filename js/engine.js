@@ -477,6 +477,18 @@
     return r;
   }
 
+  // Hints from weakest to strongest: the student's notes, initials, last name, then the start of the first name.
+  function nameHints(name, notes) {
+    const words = String(name).trim().split(/\s+/);
+    const mask = (w, keep = 1) => { let n = 0; return w.replace(/\p{L}/gu, c => (n++ < keep ? c : '•')); };
+    const out = [];
+    if (String(notes || '').trim()) out.push({ kind: 'note', text: String(notes).trim() });
+    out.push({ kind: 'name', text: words.map(w => mask(w)).join(' ') });
+    if (words.length > 1) out.push({ kind: 'name', text: [...words.slice(0, -1).map(w => mask(w)), words[words.length - 1]].join(' ') });
+    if ([...words[0]].length > 3) out.push({ kind: 'name', text: [mask(words[0], 2), ...words.slice(1).map((w, i) => (i === words.length - 2 ? w : mask(w)))].join(' ') });
+    return out;
+  }
+
   function formatInterval(ms) {
     const m = ms / 60e3;
     if (m < 60) return `${Math.round(m)}m`;
@@ -488,7 +500,7 @@
   const Engine = {
     P, hungarian, assignWithUnknown, fitHomography, ransacHomography, applyH,
     descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
-    schedule, formatInterval, DAY,
+    schedule, nameHints, formatInterval, DAY,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
   else root.Engine = Engine;

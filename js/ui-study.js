@@ -71,10 +71,61 @@ function lookalikes(sid, n = 6) {
 // A student's name that opens their record, to check or fix it while studying.
 const nameLink = s => h('button', { class: 'name-link', title: 'View or edit this student', onclick: e => { e.currentTarget.blur(); editStudent(s); } }, s.name);
 
+const mainFace = fs => fs.find(f => f.kind === 'reference') || fs[0];
+
 // Every photo of the student, so each card shows all the views at once. Fewer photos are drawn larger.
-function faceGallery(sid) {
-  const fs = facesOf(sid);
+// In recall the extra views can be turned off, leaving only the main photo.
+function faceGallery(sid, recall = false) {
+  const all = facesOf(sid);
+  const fs = recall && S.meta.onePhoto ? [mainFace(all)] : all;
   return h('div', { class: `flash-faces n${Math.min(fs.length, 5)}` }, fs.map(f => h('img', { src: f.thumb, alt: 'Who is this?' })));
+}
+
+async function togglePhotos() {
+  S.meta.onePhoto = !S.meta.onePhoto;
+  await saveMeta();
+  render();
+}
+const photoToggle = () => h('label', { class: 'inline small' },
+  h('input', { type: 'checkbox', checked: !S.meta.onePhoto, onchange: togglePhotos }), ' Show alternate photos', h('span', { class: 'key-hint' }, ' (P)'));
+const withPhotoKey = keys => (e, typing) => {
+  if (!typing && e.key.toLowerCase() === 'p') { togglePhotos(); return; }
+  keys && keys(e, typing);
+};
+
+// Hints step up one at a time, so most of the effort of recalling stays with you.
+function hintArea(s, level, more) {
+  const steps = Engine.nameHints(s.name, s.notes), shown = steps.slice(0, level);
+  const lastName = shown.filter(x => x.kind === 'name').pop();
+  return h('div', { class: 'hints' },
+    shown.filter(x => x.kind === 'note').map(x => h('p', { class: 'facts' }, x.text)),
+    lastName ? h('p', { class: 'hint-name' }, lastName.text) : null,
+    level < steps.length ? h('button', { onclick: more }, level ? 'Another hint' : 'Hint', h('span', { class: 'key-hint' }, ' (H)')) : null);
+}
+
+// ---------- Practice sets: a chosen handful, through study, mix, and recall ----------
+// Least known: shaky students you've met, then people not met yet, then everyone else by how soon they were due.
+function leastKnownRank(r) {
+  if (!r) return 2;
+  return r.ivl < 1 ? 0 : r.ivl < 7 ? 1 : 3;
+}
+function pickSet(sec, how, size, metOnly) {
+  const pool = onePerPerson(sectionStudents(sec)).filter(s => facesOf(s.id).length && (!metOnly || srsOf(s.id)));
+  const mixed = shuffle(pool);
+  if (how === 'random') return mixed.slice(0, size).map(s => s.id);
+  const rec = s => srsOf(s.id);
+  return mixed.sort((a, b) => leastKnownRank(rec(a)) - leastKnownRank(rec(b))
+    || (rec(b)?.lapses || 0) - (rec(a)?.lapses || 0) || (rec(a)?.ivl || 0) - (rec(b)?.ivl || 0)).slice(0, size).map(s => s.id);
+}
+function startSet(sec, how, recallOnly) {
+  const ids = pickSet(sec, how, S.meta.newPerSession || 10, recallOnly);
+  if (!ids.length) { toast(recallOnly ? 'Recall needs people you’ve met. Meet some students first.' : 'No students with photos here yet.'); return; }
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += 5) chunks.push(ids.slice(i, i + 5));
+  if (chunks.length > 1 && chunks[chunks.length - 1].length <= 2) chunks[chunks.length - 2].push(...chunks.pop());
+  S.meet = { sec, chunks, ci: 0, phase: recallOnly ? 'recall' : 'meet', queue: recallOnly ? shuffle(ids) : [], qi: 0, picked: null, revealed: false,
+    hint: 0, first: new Map(), set: { how, recallOnly } };
+  render();
 }
 
 VIEWS.study = () => (S.meet ? meetView() : S.session ? sessionView() : studyHome());
@@ -122,7 +173,19 @@ function studyHome() {
       h('p', { class: 'muted small' }, 'Recall the people you’ve met, on a spaced schedule. Misses come back sooner; people you mix up are drilled together.'),
       h('button', { class: c.due && !nextCount ? 'primary big' : 'big', disabled: !c.due, onclick: () => start('due') },
         c.due ? `Review ${c.due} due` : c.met ? 'All caught up' : 'Nothing to review yet'),
-      h('button', { disabled: !c.met, onclick: () => start('all') }, `Practice everyone met (${c.met})`))));
+      h('button', { disabled: !c.met, onclick: () => start('all') }, `Practice everyone met (${c.met})`)),
+    (() => {
+      S.setHow = S.setHow || 'weak';
+      return h('div', { class: 'card' },
+        h('h3', null, '3. Practice a set'),
+        h('p', { class: 'muted small' }, `Choose about ${perMeet} students and study, mix, and recall them, or go straight to recall.`),
+        h('select', { 'aria-label': 'Which students', onchange: e => { S.setHow = e.target.value; } },
+          h('option', { value: 'weak', selected: S.setHow === 'weak' }, 'Least known students'),
+          h('option', { value: 'random', selected: S.setHow === 'random' }, 'Random students')),
+        h('div', { class: 'toolbar' },
+          h('button', { class: 'primary', disabled: !c.pool, onclick: () => startSet(sec, S.setHow, false) }, 'Study, mix, recall'),
+          h('button', { disabled: !c.met, onclick: () => startSet(sec, S.setHow, true) }, 'Recall only')));
+    })()));
 
   const secs = sections();
   if (secs.length > 1) {
@@ -157,11 +220,16 @@ function sessionView() {
   const now = Date.now();
   const rec = srsOf(item.sid);
 
-  const advance = () => { ss.i++; ss.revealed = false; ss.picking = false; render(); };
+  // Practicing ahead of schedule is massed practice: a success doesn't earn a longer gap, and only a miss changes the date.
+  const early = rec && rec.due > now;
+  const advance = () => { ss.i++; ss.revealed = false; ss.picking = false; ss.hint = 0; render(); };
   const grade = async g => {
-    const r = { ...Engine.schedule(rec, g, now), id: personOf(item.sid) };
-    S.srs.set(r.id, r);
-    await DB.put('srs', r);
+    if (ss.hint) g = Math.min(g, 2);  // a hinted answer counts as Hard at most
+    if (!early || g === 1) {
+      const r = { ...Engine.schedule(rec, g, now), id: personOf(item.sid) };
+      S.srs.set(r.id, r);
+      await DB.put('srs', r);
+    }
     ss.seen++;
     if (g === 1) {
       ss.again++;
@@ -185,17 +253,23 @@ function sessionView() {
   const bar = h('div', { class: 'session-bar' },
     h('button', { class: 'link', onclick: end }, '← End session'),
     h('progress', { max: ss.queue.length, value: ss.i }),
-    h('span', { class: 'muted small' }, `${ss.i + 1} / ${ss.queue.length}`));
+    h('span', { class: 'muted small' }, `${ss.i + 1} / ${ss.queue.length}`), photoToggle());
 
   const card = h('div', { class: 'card flash' });
   if (item.compareWith && S.students.get(item.compareWith)) {
     card.append(h('p', { class: 'note' }, `You’ve mixed this person up with ${S.students.get(item.compareWith).name}. Look for what’s different.`));
   }
-  card.append(faceGallery(item.sid));
+  card.append(faceGallery(item.sid, true));
 
   if (!ss.revealed) {
-    card.append(h('button', { class: 'primary big', onclick: () => { ss.revealed = true; render(); } }, 'Show name', h('span', { class: 'key-hint' }, ' (Space)')));
-    S.onKey = (e, typing) => { if (!typing && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); ss.revealed = true; render(); } };
+    const more = () => { const n = Engine.nameHints(s.name, s.notes).length; if ((ss.hint || 0) < n) { ss.hint = (ss.hint || 0) + 1; render(); } };
+    card.append(hintArea(s, ss.hint || 0, more),
+      h('button', { class: 'primary big', onclick: () => { ss.revealed = true; render(); } }, 'Show name', h('span', { class: 'key-hint' }, ' (Space)')));
+    S.onKey = (e, typing) => {
+      if (typing) return;
+      if (e.key.toLowerCase() === 'h') more();
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); ss.revealed = true; render(); }
+    };
   } else if (ss.picking) {
     const looks = lookalikes(item.sid);
     card.append(h('h2', { class: 'name' }, nameLink(s)),
@@ -210,16 +284,19 @@ function sessionView() {
       else if (/^[1-6]$/.test(e.key) && looks[+e.key - 1]) confusedAs(looks[+e.key - 1]);
     };
   } else {
-    const label = g => Engine.formatInterval(Engine.schedule(rec, g, now).due - now);
+    const label = g => Engine.formatInterval((early && g > 1 ? rec.due : Engine.schedule(rec, g, now).due) - now);
     card.append(
       h('h2', { class: 'name' }, nameLink(s)),
       h('p', { class: 'muted' }, [s.section, s.group ? `group ${s.group}` : '', seatText(s)].filter(Boolean).join(' · ')),
       s.notes ? h('p', { class: 'facts' }, s.notes) : '',
+      ss.hint ? h('p', { class: 'muted small' }, 'You used a hint, so this counts as Hard at most.') : '',
+      early ? h('p', { class: 'muted small' }, 'Ahead of schedule: only a miss changes the next review date.') : '',
       h('div', { class: 'grades' },
         [[1, 'Again', 'again'], [2, 'Hard', 'hard'], [3, 'Good', 'good'], [4, 'Easy', 'easy']].map(([g, t, c]) =>
-          h('button', { class: `grade ${c}`, onclick: () => grade(g) }, h('b', null, t), h('small', null, h('span', { class: 'key-hint' }, `${g} · `), label(g))))));
+          h('button', { class: `grade ${c}`, disabled: !!ss.hint && g > 2, onclick: () => grade(g) }, h('b', null, t), h('small', null, h('span', { class: 'key-hint' }, `${g} · `), label(g))))));
     S.onKey = (e, typing) => { if (!typing && /^[1-4]$/.test(e.key)) grade(+e.key); };
   }
+  S.onKey = ss.picking ? S.onKey : withPhotoKey(S.onKey);
   wrap.append(bar, card);
   return wrap;
 }
@@ -283,7 +360,8 @@ function meetView() {
   const wrap = h('div', { class: 'view meet' });
   const end = () => { S.meet = null; render(); };
   const name = id => S.students.get(id)?.name || '?';
-  const begin = (phase, ids) => { Object.assign(M, { phase, queue: shuffle(ids), qi: 0, picked: null, revealed: false, face: null }); render(); };
+  const begin = (phase, ids) => { Object.assign(M, { phase, queue: shuffle(ids), qi: 0, picked: null, revealed: false, hint: 0, face: null }); render(); };
+  const toGroup = i => { Object.assign(M, { ci: i, phase: 'meet', queue: [], qi: 0, picked: null, revealed: false, hint: 0 }); render(); };
   const nextPhase = () => {
     if (M.phase === 'check') {
       if (M.ci + 1 < M.chunks.length) { M.ci++; M.phase = 'meet'; render(); }
@@ -293,7 +371,7 @@ function meetView() {
     else { M.phase = 'done'; render(); }
   };
   const advance = () => {
-    M.qi++; M.picked = null; M.revealed = false;
+    M.qi++; M.picked = null; M.revealed = false; M.hint = 0;
     if (M.qi >= M.queue.length) nextPhase(); else render();
   };
 
@@ -301,12 +379,13 @@ function meetView() {
 
   const late = ['mixed', 'recall', 'done'].includes(M.phase);
   const stepClass = (done, cur) => (done ? 'on' : cur ? 'cur' : '');
+  const step = (cls, label, go) => h('button', { class: cls, onclick: go }, label);
   wrap.append(h('div', { class: 'session-bar' },
     h('button', { class: 'link', onclick: end }, '← End'),
     h('span', { class: 'meet-steps' },
-      M.chunks.map((c, i) => h('span', { class: stepClass(late || i < M.ci, i === M.ci) }, `Group ${i + 1}`)),
-      M.chunks.length > 1 ? h('span', { class: stepClass(['recall', 'done'].includes(M.phase), M.phase === 'mixed') }, 'Mix') : null,
-      h('span', { class: stepClass(M.phase === 'done', M.phase === 'recall') }, 'Recall'))));
+      M.chunks.map((c, i) => step(stepClass(late || i < M.ci, !late && i === M.ci), `Group ${i + 1}`, () => toGroup(i))),
+      M.chunks.length > 1 ? step(stepClass(['recall', 'done'].includes(M.phase), M.phase === 'mixed'), 'Mix', () => begin('mixed', all)) : null,
+      step(stepClass(M.phase === 'done', M.phase === 'recall'), 'Recall', () => begin('recall', all)))));
 
   if (M.phase === 'meet') {
     const ids = M.chunks[M.ci];
@@ -319,7 +398,7 @@ function meetView() {
       h('div', { class: 'meet-grid' }, ids.map(id => {
         const s = S.students.get(id);
         const fs = facesOf(id);
-        const main = fs.find(f => f.kind === 'reference') || fs[0];
+        const main = mainFace(fs);
         // The name stays in view while scrolling down a column of photos.
         return h('div', { class: 'meet-card' },
           h('div', { class: 'meet-name' }, h('h3', null, nameLink(s)),
@@ -327,7 +406,9 @@ function meetView() {
           [main, ...fs.filter(f => f !== main)].map(f => h('img', { class: 'meet-photo', src: f.thumb, alt: s.name })),
           s.notes ? h('p', { class: 'facts small' }, s.notes) : null);
       })),
-      h('div', { class: 'toolbar meet-actions' }, h('button', { class: 'primary big', onclick: () => begin('check', ids) }, 'I’ve studied them — quiz me', h('span', { class: 'key-hint' }, ' (Enter)')))));
+      h('div', { class: 'toolbar meet-actions' },
+        h('button', { class: 'primary big', onclick: () => begin('check', ids) }, 'I’ve studied them — quiz me', h('span', { class: 'key-hint' }, ' (Enter)')),
+        h('button', { onclick: () => begin('recall', all) }, 'Go to recall'))));
     S.onKey = (e, typing) => { if (!typing && e.key === 'Enter') { e.preventDefault(); begin('check', ids); } };
     return wrap;
   }
@@ -336,12 +417,13 @@ function meetView() {
     const firstTry = [...M.first.values()].filter(Boolean).length;
     const more = meetChunks(M.sec, S.meta.newPerSession || 10).length > 0;
     wrap.append(h('div', { class: 'card done' },
-      h('h2', null, `You met ${all.length} students`),
-      h('p', null, `${firstTry} of ${all.length} recalled on the first try.`),
-      h('p', { class: 'muted' }, 'They’re now in your Study deck: anyone you missed comes back in about 10 minutes, the rest tomorrow. ',
+      h('h2', null, M.set ? `You practiced ${all.length} students` : `You met ${all.length} students`),
+      h('p', null, `${firstTry} of ${all.length} recalled on the first try without a hint.`),
+      h('p', { class: 'muted' }, M.set ? 'Anyone you missed comes back in about 10 minutes. ' : 'They’re now in your Study deck: anyone you missed comes back in about 10 minutes, the rest tomorrow. ',
         'A short break before the next batch helps the names settle.'),
       h('div', { class: 'toolbar' },
-        more ? h('button', { onclick: () => startMeet(M.sec) }, `Meet the next ${S.meta.newPerSession || 10}`) : null,
+        M.set ? h('button', { onclick: () => startSet(M.sec, M.set.how, M.set.recallOnly) }, 'Another set')
+          : more ? h('button', { onclick: () => startMeet(M.sec) }, `Meet the next ${S.meta.newPerSession || 10}`) : null,
         h('button', { class: 'primary', onclick: end }, 'Done'))));
     S.onKey = (e, typing) => { if (!typing && e.key === 'Enter') { e.preventDefault(); end(); } };
     return wrap;
@@ -350,7 +432,8 @@ function meetView() {
   const sid = M.queue[M.qi];
   const card = h('div', { class: 'card flash' },
     h('p', { class: 'muted small' }, `${{ check: 'Quick check', mixed: 'Mix it up', recall: 'Recall' }[M.phase]} · ${M.qi + 1} of ${M.queue.length}`),
-    faceGallery(sid));
+    M.phase === 'recall' ? photoToggle() : '',
+    faceGallery(sid, M.phase === 'recall'));
 
   if (M.phase === 'check' || M.phase === 'mixed') {
     const options = (M.phase === 'check' ? M.chunks[M.ci] : all).slice().sort((a, b) => naturalSort(name(a), name(b)));
@@ -376,25 +459,36 @@ function meetView() {
   } else {
     const s = S.students.get(sid);
     const mark = async ok => {
+      const hinted = ok && M.hint > 0;
       if (!M.first.has(sid)) {
-        M.first.set(sid, ok);
-        const r = { ...Engine.schedule(null, ok ? 3 : 1, Date.now()), id: personOf(sid) };
-        S.srs.set(r.id, r);
-        await DB.put('srs', r);
+        M.first.set(sid, ok && !hinted);
+        const rec = srsOf(sid) || null, now = Date.now();
+        // Someone not due yet only moves on a miss, the same as practicing ahead of schedule.
+        if (!ok || !rec || rec.due <= now) {
+          const r = { ...Engine.schedule(rec, !ok ? 1 : hinted ? 2 : 3, now), id: personOf(sid) };
+          S.srs.set(r.id, r);
+          await DB.put('srs', r);
+        }
       }
-      if (!ok) M.queue.splice(Math.min(M.qi + 3, M.queue.length), 0, sid);
+      if (!ok || hinted) M.queue.splice(Math.min(M.qi + 3, M.queue.length), 0, sid);  // try again later, unaided
       advance();
     };
     if (!M.revealed) {
-      card.append(h('p', null, 'Say the name, then check yourself.'),
+      const more = () => { if ((M.hint || 0) < Engine.nameHints(s.name, s.notes).length) { M.hint = (M.hint || 0) + 1; render(); } };
+      card.append(h('p', null, 'Say the name, then check yourself.'), hintArea(s, M.hint || 0, more),
         h('button', { class: 'primary big', onclick: () => { M.revealed = true; render(); } }, 'Show name', h('span', { class: 'key-hint' }, ' (Space)')));
-      S.onKey = (e, typing) => { if (!typing && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); M.revealed = true; render(); } };
+      S.onKey = withPhotoKey((e, typing) => {
+        if (typing) return;
+        if (e.key.toLowerCase() === 'h') more();
+        else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); M.revealed = true; render(); }
+      });
     } else {
       card.append(h('h2', { class: 'name' }, nameLink(s)),
+        M.hint ? h('p', { class: 'muted small' }, 'You used a hint, so this comes back once more to try without one.') : '',
         h('div', { class: 'grades two' },
           h('button', { class: 'grade again', onclick: () => mark(false) }, h('b', null, 'Missed it'), h('small', { class: 'key-hint' }, '1')),
           h('button', { class: 'grade good', onclick: () => mark(true) }, h('b', null, 'Got it'), h('small', { class: 'key-hint' }, '2'))));
-      S.onKey = (e, typing) => { if (!typing && (e.key === '1' || e.key === '2')) mark(e.key === '2'); };
+      S.onKey = withPhotoKey((e, typing) => { if (!typing && (e.key === '1' || e.key === '2')) mark(e.key === '2'); });
     }
   }
   wrap.append(card);

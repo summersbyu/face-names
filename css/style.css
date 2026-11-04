@@ -210,9 +210,12 @@ table.students tbody tr:hover { background: var(--bg); }
 .study-paths .card { display: grid; gap: .6rem; align-content: start; justify-items: start; }
 .meet { max-width: 1100px; margin: 0 auto; }
 .meet-steps { display: flex; gap: .3rem; flex: 1; flex-wrap: wrap; }
-.meet-steps span { font-size: .8rem; padding: .15rem .6rem; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
-.meet-steps span.cur { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.meet-steps span.on { background: var(--bg); color: var(--text); }
+.meet-steps button { font-size: .8rem; padding: .15rem .6rem; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.meet-steps button.cur { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.meet-steps button.on { background: var(--bg); color: var(--text); }
+.hints { display: grid; justify-items: center; gap: .4rem; }
+.hints p { margin: 0; }
+.hint-name { font-size: 1.3rem; font-weight: 600; letter-spacing: .04em; }
 .tip { background: var(--bg); border-left: 4px solid var(--accent); padding: .5rem .8rem; border-radius: 6px; }
 .meet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; margin: 1rem 0; }
 .meet-card { display: grid; gap: .35rem; align-content: start; }
@@ -264,6 +267,7 @@ table.students tbody tr:hover { background: var(--bg); }
 }
 @media (pointer: coarse) {
   kbd, .key-hint, .needs-computer { display: none; }
+  .meet-steps button { min-height: 36px; }
   button:not(.name-link) { min-height: 44px; }
   /* Below 16px, iPhones zoom the page when a field is tapped. */
   input, select, textarea { font-size: 16px; }

@@ -147,8 +147,8 @@ Every confirmed face becomes another reference photo for future matching **and**
 
 ## Studying
 
-The **Study** tab has two steps.
-
+The **Study** tab has three parts. They follow the research on durable learning in *Make It Stick*: recalling beats
+rereading, spacing beats cramming, and mixing people up beats studying one at a time.
 Click a student's name on any study screen to view or edit their record, including their photos.
 
 **1. Meet new students** (about 10 per session; adjustable). You can't recall someone you've never seen,
@@ -165,11 +165,20 @@ so new people are introduced before you're tested on them:
 - Your first try in the recall round starts each person's review schedule: misses come back in about
   10 minutes, the rest tomorrow. A short break between Meet sessions helps.
 
+**Hints** (H), in recall and in reviews, step from the student's notes to initials, the last name, then the start of
+the first name. Recalling with less help is what builds memory, so a hinted answer counts as Hard at most, and in
+recall the student comes back once more to try without one. **Show alternate photos** (P) turns off the extra views.
+
 **2. Test yourself** (reviews) shows all of a student's photos at once; recall the name, press Space, and grade yourself
 (1 Again, 2 Hard, 3 Good, 4 Easy). It only includes people you've met. Reviews are scheduled by
 spaced repetition. Use the section picker to drill the
 class you're about to teach. When you miss one, tell it who you thought it was: the two of you will be
-shown back-to-back in future sessions until you can tell them apart.
+shown back-to-back in future sessions until you can tell them apart. Practicing someone ahead of schedule doesn't push
+their next review further out, since cramming doesn't earn a longer gap; only a miss changes the date.
+
+**3. Practice a set** picks about 10 students, either **least known** (shaky students you've met, then people not met
+yet) or **random**. **Study, mix, recall** runs the full routine; **Recall only** goes straight to testing people you've
+met. In any Meet or set session, click Group, Mix, or Recall at the top to jump there.
 
 ## Files
 
