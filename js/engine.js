@@ -561,6 +561,24 @@
   }
 
   // Hints from weakest to strongest: the student's notes, initials, last name, then the start of the first name.
+  // ---------- Semesters ----------
+  // A term code like "F26", "W27", "Sp27", or "Su27", from a section name that starts with one ("W27-1")
+  // or a label that names one ("Winter 2027"). "S27" (spring or summer) is accepted as typed.
+  const SEASONS = { w: ['W', 'Winter', 0], sp: ['Sp', 'Spring', 1], s: ['S', 'Spring/Summer', 1.5], su: ['Su', 'Summer', 2], f: ['F', 'Fall', 3] };
+  function parseTerm(text) {
+    const t = String(text || '').trim();
+    const code = t.match(/^(sp|su|w|s|f)(\d{2})(?!\d)/i);
+    if (code) return SEASONS[code[1].toLowerCase()][0] + code[2];
+    const label = t.match(/\b(winter|spring|summer|fall)\s*(\d{4}|\d{2})\b/i);
+    if (!label) return '';
+    const key = { winter: 'w', spring: 'sp', summer: 'su', fall: 'f' }[label[1].toLowerCase()];
+    return SEASONS[key][0] + label[2].slice(-2);
+  }
+  const termParts = code => { const m = String(code || '').match(/^(sp|su|w|s|f)(\d{2})$/i); return m ? [SEASONS[m[1].toLowerCase()], +m[2]] : null; };
+  const termLabel = code => { const p = termParts(code); return p ? `${p[0][1]} 20${String(p[1]).padStart(2, '0')}` : (code || 'No semester'); };
+  // Later terms rank higher; no term ranks lowest.
+  const termRank = code => { const p = termParts(code); return p ? p[1] * 10 + p[0][2] : -1; };
+
   function nameHints(name, notes) {
     const words = String(name).trim().split(/\s+/);
     const mask = (w, keep = 1) => { let n = 0; return w.replace(/\p{L}/gu, c => (n++ < keep ? c : '•')); };
@@ -583,7 +601,7 @@
   const Engine = {
     P, hungarian, assignWithUnknown, fitHomography, ransacHomography, applyH,
     descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, mergeNotes, unionNotes, mergeBackup, planSectionMerge, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
-    schedule, nameHints, formatInterval, DAY,
+    schedule, nameHints, formatInterval, DAY, parseTerm, termLabel, termRank,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;
   else root.Engine = Engine;

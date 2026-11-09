@@ -7,7 +7,7 @@ async function askSectionName(message, suggested = '') {
     const name = await promptBox('Name this section', message, value);
     if (name === null) return null;
     if (!name) { toast('The section needs a name, like F26-1.'); continue; }
-    if (!sections().includes(name)) return name;
+    if (!allSections().includes(name)) return name;
     const n = sectionStudents(name).length;
     if (await confirmBox(`“${name}” already exists, with ${n} student${n === 1 ? '' : 's'}. Update it with this file? To keep them apart, cancel and choose a different name.`, 'Update it')) return name;
     value = name;
@@ -200,6 +200,7 @@ async function importRosterFile(file) {
     return;
   }
   let fallback = '';
+  const newestBefore = terms()[0];
   if (records.some(r => !r.section)) {
     fallback = await askSectionName('This file has no Section column. Section name for these students:', S.section);
     if (!fallback) return;
@@ -213,7 +214,7 @@ async function importRosterFile(file) {
     const key = `${section}|${Engine.normName(r.name)}`;
     let s = existing.get(key);
     if (s) updated++;
-    else { s = { id: uid(), section, name: r.name, group: '', row: null, seat: null, notes: '' }; existing.set(key, s); added++; }
+    else { s = { id: uid(), section, term: termFor(section), name: r.name, group: '', row: null, seat: null, notes: '' }; existing.set(key, s); added++; }
     if (!s.aliases?.length) s.name = r.name;  // keep the preferred name from a roll page
     if (r.has.group) s.group = r.group;
     if (r.has.row) s.row = r.row;
@@ -225,7 +226,8 @@ async function importRosterFile(file) {
   await saveStudents(out);
   const links = await linkStudents();
   if (!S.section) S.section = out[0]?.section || '';
-  toast(`Added ${added} and updated ${updated} students.${links ? ` Linked ${links} to their records in other sections.` : ''}`);
+  const shown = out.length ? showImported(out[0].section, newestBefore) : '';
+  toast(`Added ${added} and updated ${updated} students.${links ? ` Linked ${links} to their records in other sections.` : ''}${shown ? ` ${shown}` : ''}`, shown ? 8000 : undefined);
   render();
 }
 
@@ -347,7 +349,7 @@ async function addPortraits() {
 
 function editStudent(s) {
   const isNew = !s;
-  s = s ? { ...s } : { id: uid(), name: '', section: S.section || '1', group: '', row: null, seat: null, notes: '' };
+  s = s ? { ...s } : { id: uid(), name: '', section: S.section || '1', term: S.section ? termOf(S.section) : '', group: '', row: null, seat: null, notes: '' };
   const f = {
     name: h('input', { type: 'text', value: s.name }),
     section: h('input', { type: 'text', value: s.section, list: 'section-list' }),
@@ -438,7 +440,7 @@ VIEWS.sections = () => {
   const rename = async sec => {
     const to = await promptBox('Rename section', `New name for ${sec}:`, sec);
     if (!to || to === sec) return;
-    if (sections().includes(to)) { toast(`There’s already a section named ${to}. Choose a different name, or use Merge to combine them.`, 5000); return; }
+    if (allSections().includes(to)) { toast(`There’s already a section named ${to}. Choose a different name, or use Merge to combine them.`, 5000); return; }
     await renameSection(sec, to);
     render();
     toast(`Renamed to ${to}.`);
@@ -454,6 +456,16 @@ VIEWS.sections = () => {
     await deleteSection(sec);
     render();
     toast(`Deleted ${sec}.`);
+  };
+  const setTerm = async sec => {
+    const typed = await promptBox('Semester', `Semester for ${sec}, like W27 or Winter 2027. Leave it blank for none: a section with no semester always shows.`, termOf(sec));
+    if (typed === null) return;
+    const term = Engine.parseTerm(typed);
+    if (typed && !term) { toast('Use a semester like F26, W27, Sp27, Su27, or Fall 2026.', 5000); return; }
+    await saveStudents(sectionStudents(sec).map(s => ({ ...s, term })));
+    if (term && !sections().includes(sec)) S.term = term === terms()[0] ? null : term;
+    render();
+    toast(term ? `${sec} is in ${Engine.termLabel(term)}.` : `${sec} has no semester.`);
   };
   const merge = async sec => {
     const to = await pickSection(`Combine ${sec} into which section? ${sec} goes away; the one you pick keeps its name.`, sec);
@@ -474,15 +486,18 @@ VIEWS.sections = () => {
     h('h3', null, `${sections().length} section${sections().length === 1 ? '' : 's'}`),
     h('div', { class: 'section-rows' }, sections().map(sec => {
       const list = sectionStudents(sec), photos = [...S.photos.values()].filter(p => p.section === sec).length;
+      const term = termOf(sec);
       return h('div', { class: 'section-row' },
         h('span', null, h('b', null, sec), h('span', { class: 'muted small' },
-          ` · ${list.length} student${list.length === 1 ? '' : 's'} · ${photos} class photo${photos === 1 ? '' : 's'}`)),
+          ` · ${term ? Engine.termLabel(term) : 'no semester'} · ${list.length} student${list.length === 1 ? '' : 's'} · ${photos} class photo${photos === 1 ? '' : 's'}`)),
         h('span', { class: 'toolbar' },
           h('button', { onclick: () => rename(sec) }, 'Rename'),
+          h('button', { onclick: () => setTerm(sec) }, 'Semester'),
           sections().length > 1 ? h('button', { onclick: () => merge(sec) }, 'Merge') : null,
           h('button', { class: 'danger', onclick: () => remove(sec) }, 'Delete')));
     }))),
-    h('div', { class: 'toolbar' }, h('button', { onclick: () => { S.newSemester = { before: sections(), remove: new Set() }; render(); } }, 'Start a new semester')),
+    h('div', { class: 'toolbar' }, h('button', { onclick: () => { S.newSemester = { before: allSections(), remove: new Set() }; render(); } }, 'Start a new semester')),
+    h('p', { class: 'muted small' }, 'The newest semester is current. Earlier ones are kept for review but left out of the lists and daily study; choose them from the Semester menu at the top. '),
     h('p', { class: 'muted small' }, 'A student in several sections or classes is one student: their records are linked by name, so photos and study progress are shared and they’re only studied once. Open a student to check or undo a link.'));
   return wrap;
 };
@@ -490,8 +505,8 @@ VIEWS.sections = () => {
 // Guided setup: bring in the new rosters, see who's returning, and clear out old sections.
 function newSemesterView() {
   const N = S.newSemester;
-  const old = N.before.filter(x => sections().includes(x));
-  const added = sections().filter(x => !N.before.includes(x));
+  const old = N.before.filter(x => allSections().includes(x));
+  const added = allSections().filter(x => !N.before.includes(x));
   const newcomers = onePerPerson(added.flatMap(x => sectionStudents(x)));
   const returning = newcomers.filter(s => linkedOf(s.id).some(o => old.includes(o.section)));
   const finish = () => { S.newSemester = null; render(); };
@@ -509,7 +524,8 @@ function newSemesterView() {
   return h('div', { class: 'view' },
     h('div', { class: 'card' },
       h('h2', null, 'Start a new semester'),
-      h('p', { class: 'muted' }, 'Your current sections stay until you choose to remove them. Include the term in each new name, like W27-1.')),
+      h('p', { class: 'muted' }, 'Include the semester in each new name, like W27-1. Once the new sections are in, they become the current semester. ',
+        'Earlier semesters are kept for review, out of the lists and daily study, and can be chosen anytime from the Semester menu at the top.')),
     h('div', { class: 'card' },
       h('h3', null, '1. Bring in the new rosters'),
       h('div', { class: 'toolbar' },
@@ -526,10 +542,11 @@ function newSemesterView() {
         h('div', { class: 'thumb-row' }, returning.map(s => h('button', { class: 'chip person', onclick: () => editStudent(s) }, avatarEl(s.id, 28), s.name)))) : null,
       newcomers.length > returning.length ? h('p', { class: 'muted small' }, 'Someone’s name changed? Open them under Students and link them by hand.') : null),
     h('div', { class: 'card' },
-      h('h3', null, '3. Remove old sections (optional)'),
+      h('h3', null, '3. Earlier sections'),
+      h('p', { class: 'muted small' }, 'There’s no need to remove them: they’re kept for review and stay out of the way. Remove only sections you won’t want again.'),
       old.length ? h('div', { class: 'section-rows' }, old.map(x => h('label', { class: 'inline' },
         h('input', { type: 'checkbox', checked: N.remove.has(x), onchange: e => { if (e.target.checked) N.remove.add(x); else N.remove.delete(x); } }),
-        ` ${x} · ${sectionStudents(x).length} students`))) : h('p', { class: 'muted small' }, 'No old sections left.'),
+        ` ${x} · ${termOf(x) ? `${Engine.termLabel(termOf(x))} · ` : ''}${sectionStudents(x).length} students`))) : h('p', { class: 'muted small' }, 'No earlier sections.'),
       old.length ? h('div', { class: 'toolbar' }, h('button', { class: 'danger', onclick: removeOld }, 'Remove selected')) : null),
     h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: finish }, 'Done')));
 }
@@ -606,6 +623,8 @@ async function importRollFiles(entries) {
     return;
   }
   const report = [];
+  const newestBefore = terms()[0];
+  let last = '';
   for (const page of pages) {
     const roll = readRollPage(await page.file.text());
     if (!roll.people.length) { report.push(`${page.path}: no student photos with names found, skipped.`); continue; }
@@ -619,7 +638,7 @@ async function importRollFiles(entries) {
     };
 
     const label = [roll.course, roll.term].filter(Boolean).join(', ');
-    const termCode = roll.term ? `${roll.term[0]}${roll.term.slice(-2)}` : '';
+    const termCode = Engine.parseTerm(roll.term);
     const section = await askSectionName(
       `${page.path.split('/').pop()}${label ? ` (${label})` : ''}: ${roll.people.length} students. Section name:`,
       [termCode, roll.section].filter(Boolean).join('-'));
@@ -627,12 +646,14 @@ async function importRollFiles(entries) {
 
     const existing = new Map(sectionStudents(section).flatMap(s =>
       [s.name, ...(s.aliases || [])].map(n => [Engine.normName(n), s])));
+    const term = termFor(section, roll.term);
     let added = 0, updated = 0;
+    last = section;
     const pairs = roll.people.map(p => {
       const rn = Engine.rollName(p);
       let s = [rn.name, ...rn.aliases].map(n => existing.get(Engine.normName(n))).find(Boolean);
       if (s) updated++;
-      else { s = { id: uid(), section, name: rn.name, group: '', row: null, seat: null, notes: '' }; added++; }
+      else { s = { id: uid(), section, term, name: rn.name, group: '', row: null, seat: null, notes: '' }; added++; }
       Object.assign(s, { name: rn.name, aliases: rn.aliases, legalName: rn.legal });
       return { s, src: p.src };
     });
@@ -667,6 +688,7 @@ async function importRollFiles(entries) {
   if (links) report.push(`Linked ${links} students to their records in other sections; they now share photos and study progress.`);
   const dupes = await removeDuplicatePhotos();
   if (dupes) report.push(`Removed ${dupes} duplicate photos (the same picture at a lower resolution).`);
+  if (last) report.push(showImported(last, newestBefore));
   render();
   modal('Picture roll import', h('div', null, report.map(r => h('p', null, r))));
 }
@@ -699,6 +721,8 @@ function linkPicker(s, close, getDlg) {
 
 async function importSeatingPdfs(files) {
   const report = [];
+  const newestBefore = terms()[0];
+  let last = '';
   for (const file of files.sort((a, b) => naturalSort(a.name, b.name))) {
     const status = h('p', { class: 'progress' }, `Reading ${file.name}…`);
     let dlg = modal('Importing seating chart', status);
@@ -721,12 +745,14 @@ async function importSeatingPdfs(files) {
 
     const existing = new Map(sectionStudents(section).flatMap(s =>
       [s.name, ...(s.aliases || [])].map(n => [Engine.normName(n), s])));
+    const term = termFor(section, chart.term);
     let added = 0, updated = 0;
+    last = section;
     const pairs = chart.people.map(p => {
       const name = `${p.first} ${p.last}`;
       let s = existing.get(Engine.normName(name));
       if (s) updated++;
-      else { s = { id: uid(), section, name, group: '', row: null, seat: null, notes: '' }; added++; }
+      else { s = { id: uid(), section, term, name, group: '', row: null, seat: null, notes: '' }; added++; }
       Object.assign(s, { group: p.group || s.group, seatLabel: p.seat || '', pos: p.pos });
       return { s, blob: p.blob };
     });
@@ -760,6 +786,7 @@ async function importSeatingPdfs(files) {
   if (links) report.push(`Linked ${links} students to their records in other sections; they now share photos and study progress.`);
   const dupes = await removeDuplicatePhotos();
   if (dupes) report.push(`Removed ${dupes} duplicate photos (the same picture at a lower resolution).`);
+  if (last) report.push(showImported(last, newestBefore));
   render();
   modal('Seating chart import', h('div', null, report.map(r => h('p', null, r))));
 }

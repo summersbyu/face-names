@@ -106,7 +106,7 @@ const SeatingPdf = (() => {
     return {
       section,
       term: term ? `${term[1][0].toUpperCase()}${term[1].slice(1).toLowerCase()} ${term[2]}` : '',
-      termCode: term ? `${term[1][0].toUpperCase()}${term[2].slice(2)}` : '',
+      termCode: term ? Engine.parseTerm(term[0]) : '',
       room,
     };
   }

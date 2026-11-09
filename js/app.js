@@ -272,8 +272,56 @@ async function deleteSection(sec) {
   await markDeleted(photos.map(p => p.id));
 }
 
-const sections = () => [...new Set([...S.students.values()].map(s => s.section))].sort(naturalSort);
-const sectionStudents = sec => [...S.students.values()].filter(s => !sec || s.section === sec).sort((a, b) => naturalSort(a.name, b.name));
+// ---------- Semesters ----------
+// A section's semester is set on its students when it's imported, or read from its name ("W27-1"). The newest
+// semester is current; earlier ones are kept for review but left out of the lists and daily study until chosen.
+// A section with no semester always shows.
+function sectionTerms() {
+  const out = new Map();
+  for (const s of S.students.values()) if (s.term != null && !out.has(s.section)) out.set(s.section, s.term);
+  for (const s of S.students.values()) if (!out.has(s.section)) out.set(s.section, Engine.parseTerm(s.section));
+  return out;
+}
+const termOf = sec => sectionTerms().get(sec) ?? Engine.parseTerm(sec);
+const terms = () => [...new Set(sectionTerms().values())].filter(Boolean).sort((a, b) => Engine.termRank(b) - Engine.termRank(a));
+const shownTerm = () => { const all = terms(); return S.term === 'all' ? 'all' : all.includes(S.term) ? S.term : all[0] || 'all'; };
+// For a new section: the term in its name, else the one the file names ("Winter 2027").
+const termFor = (sec, label) => termOf(sec) || Engine.parseTerm(label);
+
+const allSections = () => [...sectionTerms().keys()].sort(naturalSort);
+const sections = () => {
+  const shown = shownTerm(), byTerm = sectionTerms();
+  return allSections().filter(x => shown === 'all' || !byTerm.get(x) || byTerm.get(x) === shown)
+    .sort((a, b) => Engine.termRank(byTerm.get(b)) - Engine.termRank(byTerm.get(a)) || naturalSort(a, b));
+};
+// With no section, everyone in the sections shown.
+function sectionStudents(sec) {
+  const shown = sec ? null : new Set(sections());
+  return [...S.students.values()].filter(s => (sec ? s.section === sec : shown.has(s.section))).sort((a, b) => naturalSort(a.name, b.name));
+}
+
+// After an import: show what came in, and say so when a new semester has become the current one.
+function showImported(sec, newestBefore) {
+  const t = termOf(sec), newest = terms()[0];
+  if (!t || sections().includes(sec)) {
+    return !S.term && newestBefore && t === newest && t !== newestBefore
+      ? `${Engine.termLabel(t)} is now the current semester. ${Engine.termLabel(newestBefore)} is kept for review: choose it from the Semester menu at the top.` : '';
+  }
+  S.term = t === newest ? null : t;
+  return `Now showing ${Engine.termLabel(t)}.`;
+}
+
+function termBar() {
+  const all = terms(), shown = shownTerm();
+  if (all.length < 2) return null;
+  const pick = v => { S.term = v === all[0] ? null : v; S.studySection = ''; render(); };
+  return h('div', { class: 'term-bar' },
+    h('label', { class: 'inline' }, 'Semester ',
+      h('select', { onchange: e => pick(e.target.value) },
+        all.map((t, i) => h('option', { value: t, selected: t === shown }, `${Engine.termLabel(t)}${i ? '' : ' (current)'}`)),
+        h('option', { value: 'all', selected: shown === 'all' }, 'All semesters'))),
+    shown !== 'all' && shown !== all[0] ? h('span', { class: 'muted small' }, 'An earlier semester, for review.') : null);
+}
 const facesOf = sid => S.byStudent.get(sid) || [];
 const firstName = s => (s ? s.name.split(' ')[0] : '');
 
@@ -316,6 +364,7 @@ function sectionSelect(value, onChange, { all = false } = {}) {
 function ensureSection() {
   const secs = sections();
   if (!secs.includes(S.section)) S.section = secs[0] || '';
+  if (S.studySection && !secs.includes(S.studySection)) S.studySection = '';
 }
 
 // ---------- Navigation ----------
@@ -341,8 +390,9 @@ function render() {
     h('button', { class: current === id ? 'tab active' : 'tab', 'aria-current': current === id ? 'page' : null,
       onclick: () => goTo(id === 'manage' ? lastManage : id) }, label)));
   const main = $('#main');
-  main.replaceChildren(...(managing ? [manageNav()] : []), VIEWS[S.view]());
-  try { localStorage.setItem('fn-view', JSON.stringify({ view: S.view, section: S.section })); } catch {}
+  const busy = S.session || S.meet || S.room || S.reviewPhoto || S.newSemester || S.view === 'backup';
+  main.replaceChildren(...(managing ? [manageNav()] : []), ...(busy ? [] : [termBar()].filter(Boolean)), VIEWS[S.view]());
+  try { localStorage.setItem('fn-view', JSON.stringify({ view: S.view, section: S.section, term: S.term || null })); } catch {}
 }
 
 document.addEventListener('keydown', e => {
@@ -370,6 +420,7 @@ async function init() {
     const saved = JSON.parse(localStorage.getItem('fn-view') || '{}');
     if (saved.view && VIEWS[saved.view]) S.view = saved.view;
     if (saved.section != null) S.section = saved.section;
+    if (saved.term) S.term = saved.term;
   } catch {}
   if (!S.students.size) S.view = 'roster';
   render();

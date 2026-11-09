@@ -34,9 +34,12 @@ Both contain student photos and names, so store and send them as you would other
 
 ## On a phone
 
-Open the web address above, then add it to your home screen (iPhone: Safari's Share menu, then **Add to Home
-Screen**; Android: Chrome's menu, then **Add to Home screen**). It then opens without a connection. On an iPhone,
-Safari can clear a site's data after about a week without use unless it's on the home screen.
+Open the web address above, then install it so it opens like an app, without a connection:
+
+- **Android:** in Chrome's menu, choose **Install app** (on some phones, **Add to Home screen**, then **Install**).
+- **iPhone or iPad:** open it in Safari, tap **Share**, then **Add to Home Screen** (scroll down the menu if you don't
+  see it), and tap **Add**. Open the app from the home screen icon from then on: the icon keeps its own data,
+  separate from the Safari tab. Without the icon, Safari can clear a site's data after about a week without use.
 
 A phone suits Meet and Test yourself. Do imports and photo labeling on a computer, then bring the data over: on the
 computer, **Save my backup** (untick full class photos for a much smaller file), and on the phone, **Open a file**.
@@ -77,9 +80,14 @@ link one by hand after a name change (the closest-looking faces are listed first
 
 **Under Manage → Sections** you can rename, merge, or delete a section. Merge is for one class imported twice: someone
 in both becomes one record with all their photos and notes. **Start a new semester** walks through importing new rosters,
-seeing who's returning, and removing old sections. To drop one student from a section, open the
+seeing who's returning, and removing old sections if you want to. To drop one student from a section, open the
 student and click **Drop from section**. Someone also in other sections stays there with their photos and progress;
 if it's their only section, their record is removed. Importing that section's chart or roll again brings them back.
+
+**Semesters.** Each section belongs to a semester, read from its name (`F26-1`, `W27-2`, `Sp27-1`, `Su27-1`) or from
+the chart or roll it came from. The newest semester is current. Earlier ones are kept, with your progress, but left
+out of the lists and daily study; choose one from the **Semester** menu at the top to review it, or **All semesters**.
+Change a section's semester under **Manage → Sections → Semester**. A section with no semester always shows.
 
 Then add groups, seats, and facts with the files below (optional). They update the same students.
 
