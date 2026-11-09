@@ -256,6 +256,8 @@ function studyHome() {
   const nextMeet = meetChunks(sec, perMeet);
   const nextCount = nextMeet.flat().length;
   const nextGroups = [...new Set(nextMeet.flat().map(id => S.students.get(id).group).filter(Boolean))];
+  const news = whatsNew();
+  if (news) wrap.append(news);
   const stale = S.srs.size && (!S.meta.lastBackup || Date.now() - S.meta.lastBackup > 7 * Engine.DAY);
   if (stale) {
     const save = h('button', { onclick: async () => { save.disabled = true; save.textContent = 'Saving…'; await saveBackup(); render(); toast('Backup saved. Keep it somewhere safe.'); } }, 'Save a backup');

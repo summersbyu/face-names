@@ -41,7 +41,7 @@ Open the web address above, then install it so it opens like an app, without a c
   see it), and tap **Add**. Open the app from the home screen icon from then on: the icon keeps its own data,
   separate from the Safari tab. Without the icon, Safari can clear a site's data after about a week without use.
 
-A phone suits Meet and Test yourself. Do imports and photo labeling on a computer, then bring the data over: on the
+A phone suits Meet and Test yourself, and **Class Photos → Take a photo** adds a class photo straight from the camera. Do imports and photo labeling on a computer, then bring the data over: on the
 computer, **Save my backup** (untick full class photos for a much smaller file), and on the phone, **Open a file**.
 Your phone and computer don't sync on their own: to bring progress across, save a backup on one and **Merge** it on the other.
 
@@ -58,13 +58,17 @@ their student card.
 
 **Or: your picture roll (the class photo roll pages).** These bring in names, preferred names, and photos in one step:
 
-1. Make an empty folder, e.g. `Class rolls`.
-2. Open a section's class photo roll in Chrome or Edge and scroll to the bottom so every photo loads.
-3. Press **Ctrl+S**, choose **Webpage, Complete**, and save into that folder. Repeat for each section.
-4. In the app: **Manage → Students → Import picture roll**, and choose that folder, the one holding each page and its
-   `_files` folder. If you choose a `_files` folder by itself, the app asks you to pick its page too. The browser asks
-   permission to read the folder's files. The files are read only on your computer and never uploaded.
-   Each page asks for a section name (suggested from the page, e.g. `W27-1`).
+1. In the app, click **Manage → Students → Import picture roll** and drag the **Save picture roll** button onto your
+   bookmarks bar (once; Ctrl+Shift+B shows the bar in Chrome and Edge).
+2. Open a section's class photo roll and click that bookmark. It scrolls to load every photo and saves the roll as one
+   file, with the photos inside, in your Downloads. Repeat for each section.
+3. Back in the app, **Import picture roll → Choose saved roll files**, and pick them all. Each roll asks for a section
+   name (suggested from the page, e.g. `W27-1`).
+
+The bookmark runs only in your browser: the roll goes from the university's page to your Downloads and nowhere else.
+
+Saved with **Ctrl+S → Webpage, Complete** instead? Use **Import picture roll → Choose a folder** and pick the folder that
+holds the page and its `_files` folder (if you pick the `_files` folder by itself, the app asks for the page too).
 
 Students are listed by preferred name ("Allen Rivera"); their legal name ("James Allen Rivera")
 is kept so roster and seating-chart files can use either. Importing a page again updates the same

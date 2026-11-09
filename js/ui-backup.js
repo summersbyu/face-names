@@ -157,6 +157,9 @@ VIEWS.backup = () => {
       h('p', { class: 'muted small' }, 'These files contain student photos and names. Store and send them as you would other student records.')),
     h('div', { class: 'card' },
       h('h3', null, 'Start over'),
-      h('button', { class: 'danger', onclick: wipe }, 'Delete everything')));
+      h('button', { class: 'danger', onclick: wipe }, 'Delete everything')),
+    h('p', { class: 'muted small' }, `Version ${APP_VERSION}`));
+  // From the welcome screen: go straight to choosing the file (still inside that click, so the browser allows it).
+  if (S.openFileNow) { S.openFileNow = false; openFile(); }
   return wrap;
 };

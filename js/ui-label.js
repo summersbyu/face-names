@@ -82,15 +82,17 @@ function photoListView() {
   const date = h('input', { type: 'date', value: today(), 'aria-label': 'Date taken' });
   const progress = h('p', { class: 'progress', role: 'status' });
   const add = h('button', { class: 'primary', onclick: () => addClassPhotos(S.section, date.value || today(), progress, add) }, 'Add class photos');
+  const snap = h('button', { class: 'needs-touch', onclick: () => addClassPhotos(S.section, date.value || today(), progress, snap, true) }, 'Take a photo');
   wrap.append(h('div', { class: 'toolbar' },
     sectionSelect(S.section, v => { S.section = v; render(); }),
-    h('label', { class: 'inline' }, 'Taken on ', date), add), progress);
+    h('label', { class: 'inline' }, 'Taken on ', date), snap, add), progress);
 
   wrap.append(h('details', { class: 'help' }, h('summary', null, 'Tips for class photos'),
     h('ul', null,
       h('li', null, 'Ask everyone to look up at you for a moment. Faces looking down at laptops are the main cause of misses.'),
       h('li', null, 'For a big room, take 2–3 overlapping photos (left, middle, right) from the front. Add them all; each is matched separately.'),
       h('li', null, 'Use your phone’s full resolution and avoid zoom. Back-row faces need to be at least ~40 pixels wide.'),
+      h('li', { class: 'needs-touch' }, 'Take a photo opens the camera and adds the picture to this section. Labeling is easier on a computer: bring the photos over with a backup.'),
       h('li', null, 'iPhone: set Camera → Formats → “Most Compatible” so photos are JPEG, not HEIC.'),
       h('li', null, 'Once a few faces are confirmed, the seat map kicks in and suggestions for blurry or turned faces improve.'))));
 
@@ -122,8 +124,8 @@ function photoListView() {
   return wrap;
 }
 
-async function addClassPhotos(section, date, progress, button) {
-  const files = await pickFiles({ accept: 'image/*', multiple: true });
+async function addClassPhotos(section, date, progress, button, camera = false) {
+  const files = await pickFiles(camera ? { accept: 'image/*', capture: 'environment' } : { accept: 'image/*', multiple: true });
   if (!files.length) return;
   button.disabled = true;
   let first = null;

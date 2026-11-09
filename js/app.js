@@ -82,13 +82,34 @@ function confirmBox(msg, okLabel = 'OK', danger = false, { offerBackup = false }
   });
 }
 
-function pickFiles({ accept, multiple = false, directory = false } = {}) {
+// capture: 'environment' opens a phone's camera instead of its photo library.
+function pickFiles({ accept, multiple = false, directory = false, capture = null } = {}) {
   return new Promise(resolve => {
-    const input = h('input', { type: 'file', accept, multiple, webkitdirectory: directory, style: { display: 'none' } });
+    const input = h('input', { type: 'file', accept, multiple, webkitdirectory: directory, capture, style: { display: 'none' } });
     input.addEventListener('change', () => { resolve([...input.files]); input.remove(); });
     document.body.append(input);
     input.click();
   });
+}
+
+// ---------- Version ----------
+// Shown once on each device after an update, newest first. Versions are dates, so they sort as text.
+const APP_VERSION = '2026.11.09';
+const WHATS_NEW = [
+  ['2026.11.09', 'Semesters: the newest is current, and earlier ones are kept for review in the Semester menu at the top. ' +
+    'The Save picture roll bookmark saves a class roll in one click (Manage → Students → Import picture roll). ' +
+    'On a phone, Class Photos has Take a photo.'],
+];
+function whatsNew() {
+  let seen = '';
+  try { seen = localStorage.getItem('fn-seen-version') || ''; } catch {}
+  const mark = () => { try { localStorage.setItem('fn-seen-version', APP_VERSION); } catch {} };
+  const items = WHATS_NEW.filter(([v]) => v > seen);
+  if (seen === APP_VERSION || !items.length || !S.students.size) { mark(); return null; }
+  const box = h('div', { class: 'tip toolbar' },
+    h('span', { class: 'spacer' }, h('b', null, 'What’s new: '), items.map(i => i[1]).join(' ')),
+    h('button', { onclick: () => { mark(); box.remove(); } }, 'Got it'));
+  return box;
 }
 
 // ---------- Data helpers ----------

@@ -40,10 +40,10 @@ function formatHelp() {
       'Importing a chart again updates the same students and replaces their chart photo.'),
     h('h4', null, 'Picture roll'),
     h('ol', null,
-      h('li', null, 'Make an empty folder, e.g. “Class rolls”.'),
-      h('li', null, 'Open a section’s class photo roll in Chrome or Edge and scroll to the bottom so every photo loads.'),
-      h('li', null, 'Press Ctrl+S, choose “Webpage, Complete”, and save into that folder. Repeat for each section.'),
-      h('li', null, 'Click ', h('b', null, 'Import picture roll'), ' and choose that folder, the one holding the page and its _files folder. Names, preferred names, and photos come in together; each page asks for a section name.')),
+      h('li', null, 'Click ', h('b', null, 'Import picture roll'), ' and drag the ', h('b', null, 'Save picture roll'), ' button to your bookmarks bar (once).'),
+      h('li', null, 'Open a section’s class photo roll and click that bookmark. It loads every photo and saves the roll as one file in Downloads. Repeat for each section.'),
+      h('li', null, 'Click ', h('b', null, 'Import picture roll'), ', then ', h('b', null, 'Choose saved roll files'), ', and pick them all. Names, preferred names, and photos come in together; each roll asks for a section name.')),
+    h('p', null, 'Saved with Ctrl+S → “Webpage, Complete” instead? Choose ', h('b', null, 'Choose a folder'), ' and pick the folder that holds the page and its _files folder.'),
     h('p', null, 'Students are listed by preferred name (“Allen Rivera”); their legal name still matches in roster and seating-chart files. ',
       'Importing a page again updates the same students and replaces their roll photo.'),
     h('h4', null, 'Roster CSV (one row per student)'),
@@ -101,19 +101,19 @@ VIEWS.roster = () => {
     h('button', { onclick: () => editStudent(null) }, 'Add student')));
 
   if (!S.students.size) {
+    const choice = (title, text, onclick, cls = '') => h('button', { class: `start-choice ${cls}`, onclick }, h('b', null, title), h('span', { class: 'muted small' }, text));
+    const openFile = () => { S.openFileNow = true; goTo('backup'); };
     wrap.append(h('div', { class: 'card intro' },
-      h('h2', null, 'Getting started'),
-      h('ol', null,
-        h('li', null, 'If you have seating-chart PDFs with photos, click ', h('b', null, 'Import seating chart'),
-          '. Names, groups, seats, and a photo of each student come in together.'),
-        h('li', { class: 'needs-computer' }, 'Or save each section’s class photo roll page (Ctrl+S → “Webpage, Complete”) into one folder and click ',
-          h('b', null, 'Import picture roll'), '. “File formats” below has the details.'),
-        h('li', null, 'Optionally import a roster CSV with groups, seats, and facts for the flashcards. It updates the same students.'),
-        h('li', null, 'Optionally import a CSV seating chart for each section, laid out like the room.'),
-        h('li', null, 'Under ', h('b', null, 'Class Photos'), ', add class photos. The app suggests a name for every face; you confirm or fix them.'),
-        h('li', null, 'Under ', h('b', null, 'Study'), ', practice faces → names. It schedules reviews and drills the people you mix up.')),
-      h('p', null, 'Already have a backup or a student file from a colleague? Open it from the ', h('b', null, 'Backup'), ' tab.'),
-      h('p', { class: 'muted' }, 'Everything is stored only in this browser on this device. Use Backup to save a copy.')),
+      h('h2', null, 'Welcome'),
+      h('p', null, 'Where are your students coming from? You can add more later.'),
+      h('div', { class: 'choice-grid' },
+        choice('A file from a colleague', 'A student file with names, photos, and labels, ready to study. Your progress is your own.', openFile),
+        choice('Seating chart PDFs', 'Names, groups, seats, and a photo of each student.', importSeatingCharts),
+        choice('The class photo roll', 'Names, preferred names, and photos from the university’s roll page.', importRollPages, 'needs-computer'),
+        choice('A roster spreadsheet (CSV)', 'Names, plus groups, seats, and facts for the flashcards.', importRoster),
+        choice('My own backup', 'Moving from another device or browser.', openFile)),
+      h('p', null, 'Next, add class photos under ', h('b', null, 'Class Photos'), ' if you like, and practice under ', h('b', null, 'Study'), '.'),
+      h('p', { class: 'muted' }, 'Everything is stored only in this browser on this device. Nothing is uploaded. Use Backup to save a copy.')),
       formatHelp());
     return wrap;
   }
@@ -587,7 +587,96 @@ function readRollPage(html) {
   return { ...header, people };
 }
 
-async function importRollPages() {
+// Runs on the university's class roll page from a bookmark, not in this app: loads every photo and saves the page
+// as one .html file with the photos inside it. Self-contained, since the bookmark carries only this function's text.
+async function saveRollBookmark() {
+  if (window.__faceNamesSaving) return;
+  window.__faceNamesSaving = true;
+  const note = document.createElement('div');
+  note.id = 'face-names-note';
+  note.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:340px;padding:12px 16px;border-radius:8px;' +
+    'background:#1f2937;color:#fff;font:14px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+  document.body.append(note);
+  const say = t => { note.textContent = 'Face Names: ' + t; };
+  try {
+    say('loading every photo…');
+    // Some rolls add students as you scroll: scroll until nothing new appears.
+    for (let i = 0, last = -1, still = 0; i < 40 && still < 3; i++) {
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise(r => setTimeout(r, 400));
+      const n = document.images.length;
+      still = n === last ? still + 1 : 0;
+      last = n;
+    }
+    window.scrollTo(0, 0);
+    const live = [...document.querySelectorAll('img')];
+    const copy = document.documentElement.cloneNode(true);
+    copy.querySelector('#face-names-note')?.remove();
+    copy.querySelectorAll('script').forEach(s => s.remove());
+    const imgs = [...copy.querySelectorAll('img')];
+    let saved = 0, missed = 0;
+    for (let i = 0; i < imgs.length && i < live.length; i++) {
+      const src = live[i].currentSrc || live[i].src;
+      if (!src || src.startsWith('data:') || (live[i].naturalWidth && live[i].naturalWidth < 20)) continue;
+      say(`saving photos… ${saved + missed + 1}`);
+      try {
+        const res = await fetch(src, { credentials: 'include' });
+        const blob = await res.blob();
+        if (!res.ok || !blob.size || blob.type.includes('html')) throw new Error();
+        imgs[i].setAttribute('src', await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(blob); }));
+        imgs[i].removeAttribute('srcset');
+        saved++;
+      } catch { missed++; }
+    }
+    const text = document.body.innerText.replace(/\s+/g, ' ');
+    const find = re => (text.match(re) || [])[1] || '';
+    const name = ['Picture roll', find(/Course:\s*([A-Z]{1,5}\s+\d{3}[A-Z]?)/), find(/Section:\s*(\d+)/), find(/((?:Winter|Spring|Summer|Fall)\s+\d{4})/)]
+      .filter(Boolean).join(' ').replace(/[\\/:*?"<>|]/g, '');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['<!doctype html>\n<!-- Saved by Face Names -->\n' + copy.outerHTML], { type: 'text/html' }));
+    a.download = name + '.html';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    say(`saved “${name}.html” to Downloads with ${saved} photos${missed ? `; ${missed} couldn’t be saved` : ''}. ` +
+      'In Face Names, click Import picture roll, then Choose saved roll files.');
+  } catch (e) {
+    say('couldn’t save this page (' + (e && e.message || 'unknown error') + ').');
+  }
+  window.__faceNamesSaving = false;
+  setTimeout(() => note.remove(), 20000);
+}
+
+function rollBookmarkLink() {
+  return h('a', { class: 'bookmarklet', href: 'javascript:' + encodeURIComponent(`(${saveRollBookmark})()`),
+    onclick: e => { e.preventDefault(); toast('Drag this button onto your bookmarks bar, then click it on a class photo roll page.', 6000); } },
+  'Save picture roll');
+}
+
+function importRollPages() {
+  const chooseFiles = async () => {
+    dlg.close();
+    const files = await pickFiles({ accept: '.html,.htm,text/html', multiple: true });
+    if (files.length) await importRollFiles(files.map(f => ({ path: f.name, file: f })));
+  };
+  const dlg = modal('Import picture roll', h('div', null,
+    h('p', null, h('b', null, 'Save each roll with this bookmark.'), ' Drag it onto your bookmarks bar once (Ctrl+Shift+B shows the bar):'),
+    h('p', null, rollBookmarkLink()),
+    h('ol', null,
+      h('li', null, 'Open a section’s class photo roll and click the bookmark. It loads every photo and saves the roll as one file in your Downloads.'),
+      h('li', null, 'Repeat for each section.'),
+      h('li', null, 'Come back here, click ', h('b', null, 'Choose saved roll files'), ', and pick them all.')),
+    h('p', { class: 'muted small' }, 'The bookmark runs only in your browser: the roll goes from the university’s page to your Downloads, and nowhere else. ',
+      'Saved with Ctrl+S → “Webpage, Complete” instead? Use ', h('b', null, 'Choose a folder'), ' and pick the folder holding the page and its _files folder.')), {
+    wide: true,
+    actions: [
+      h('button', { onclick: () => { dlg.close(); importRollFolder(); } }, 'Choose a folder'),
+      h('button', { class: 'primary', onclick: chooseFiles }, 'Choose saved roll files'),
+    ],
+  });
+}
+
+async function importRollFolder() {
   const files = await pickFiles({ directory: true });
   if (!files.length) return;
   const entries = files.map(f => ({ path: f.webkitRelativePath || f.name, file: f }));
@@ -680,6 +769,11 @@ async function importRollFiles(entries) {
       } catch { noFace.push(s.name); }
     }
     dlg.close();
+    if (pairs.length && noPhoto.length === pairs.length && !entries.some(e => e.path.includes('/'))) {
+      report.push(`${section}: ${added} added, ${updated} updated, but no photos: this page keeps its photos in a separate _files folder. ` +
+        'Import it again with Choose a folder, or save the roll with the Save picture roll bookmark.');
+      continue;
+    }
     report.push(`${section}: ${added} added, ${updated} updated, ${photos} photos.` +
       (noPhoto.length ? ` Photo not found in the saved files for: ${noPhoto.join(', ')}.` : '') +
       (noFace.length ? ` No face detected for: ${noFace.join(', ')}.` : ''));
