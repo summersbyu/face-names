@@ -231,7 +231,7 @@ function roomView() {
       chart.placed ? floorPlan(list, seats) : seatingChart(list, seats)));
 }
 
-VIEWS.study = () => (S.room ? roomView() : S.meet ? meetView() : S.session ? sessionView() : studyHome());
+VIEWS.study = () => (S.cheat ? cheatView() : S.room ? roomView() : S.meet ? meetView() : S.session ? sessionView() : studyHome());
 
 function studyHome() {
   const wrap = h('div', { class: 'view' });
@@ -307,7 +307,11 @@ function studyHome() {
       h('p', { class: 'muted small' }, 'Faces in their seats, names hidden. Tap a seat and recall who sits there.'),
       h('select', { 'aria-label': 'Section for the quiz', onchange: e => { S.roomSection = e.target.value; } },
         chartSections.map(x => h('option', { value: x, selected: x === roomSection }, x))),
-      h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: () => { S.room = { sec: S.roomSection, marks: new Map() }; render(); } }, 'Start the quiz'))) : null),
+      h('div', { class: 'toolbar' }, h('button', { class: 'primary', onclick: () => { S.room = { sec: S.roomSection, marks: new Map() }; render(); } }, 'Start the quiz'))) : null,
+    h('div', { class: 'card' },
+      h('h3', null, `${chartSections.length ? 5 : 4}. In class`),
+      h('p', { class: 'muted small' }, 'A cheat sheet for your phone: who sits where, with names showing. Tap anyone for their photos and notes.'),
+      h('div', { class: 'toolbar' }, h('button', { onclick: () => { S.cheat = { sec: sec || S.roomSection || sections()[0], query: '' }; render(); } }, 'Open the cheat sheet')))),
     missedCard(sec));
 
   const secs = sections();

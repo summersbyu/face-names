@@ -17,6 +17,10 @@ All data (names, photos, study history) is stored **only in that browser on this
 Nothing is uploaded anywhere. Use the **Backup** tab to save a copy, and always open the app the
 same way (the same browser and the same file location), since the data is tied to it.
 
+**Trying it first:** on the welcome screen, **Try a sample class first** adds 20 made-up students with drawn faces,
+groups, seats, and facts, so you (or a colleague) can try every part with no real student data. A banner at the top
+removes it in one click; your own students aren't touched.
+
 ## Sharing and moving your data
 
 The **Backup** tab saves two kinds of file:
@@ -215,8 +219,18 @@ there, and check yourself. It counts toward reviews the same way recall does. It
 **Who I keep missing**, at the bottom of the Study tab, lists the students you miss most and the people you mix up, with
 buttons to practice them.
 
+**In class: the cheat sheet.** **Open the cheat sheet** on the Study tab shows a section's seating chart with names
+showing (or, with no chart, everyone's photo and name). Type in **Find a name** to light up one student's seat, and tap
+anyone for their photos and notes. It's for looking, not practice, so it doesn't change your study schedule.
+
+**Manage → Needs attention** lists what's unfinished in the sections shown, each with a button to fix it: students
+without a photo, class photos with faces still to confirm, sections without a seating chart, and records in different
+sections that may be one student (similar faces, often after a name change). The tab shows how many items are waiting.
+
 ## Files
 
 - `index.html`, `css/`, `js/`: the app (`js/engine.js` has the matching and scheduling logic)
 - `tests/engine.test.js`: matching tests (`node tests/engine.test.js`)
+- `tests/smoke.html`, `tests/run-smoke.py`: a whole-app check with made-up students, run in a throwaway headless Edge or
+  Chrome (`python tests/run-smoke.py`). `make-share.py --publish` runs it first and won't publish if anything fails.
 - `tests/sample-class.js`: builds a fake 22-student class for trying the app end to end

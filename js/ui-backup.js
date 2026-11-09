@@ -43,7 +43,8 @@ async function saveBackup(includePhotos = Folder.photos) {
 const Local = (() => {
   let dbp = null;
   const open = () => dbp || (dbp = new Promise((resolve, reject) => {
-    const req = indexedDB.open('face-names-local', 1);
+    // Guarded: for a few minutes after an update a browser can pair this file with an older cached db.js.
+    const req = indexedDB.open(`${typeof DB_NAME === 'string' ? DB_NAME : 'face-names'}-local`, 1);
     req.onupgradeneeded = () => req.result.createObjectStore('kv');
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -88,9 +89,15 @@ const Folder = {
     await w.write(blob);
     await w.close();
   },
+  // One save at a time: a click during an automatic save waits for it, then saves again.
+  save(ask = false) {
+    const next = (this.busy || Promise.resolve()).catch(() => {}).then(() => this.saveNow(ask));
+    this.busy = next;
+    return next;
+  },
   // The latest backup plus a copy for each of the last 7 days, so a mistake that got saved can still be undone.
-  async save(ask = false) {
-    if (this.saving || !S.students.size || !(await this.allowed(ask))) return false;
+  async saveNow(ask) {
+    if (!S.students.size || !(await this.allowed(ask))) return false;
     this.saving = true;
     try {
       const blob = await backupBlob(this.photos);
@@ -150,7 +157,7 @@ VIEWS.backup = () => {
 
   // Only the sections chosen: a colleague needs the students they teach, not everyone you do. Starts with the
   // sections shown now (the current semester). Study progress and mix-ups stay out: they're in srs and meta.
-  const shareSections = new Set(sections());
+  const shareSections = new Set(sections().filter(x => x !== SAMPLE_SECTION));
   const shareCount = h('p', { class: 'muted small' });
   const countShare = () => {
     const n = onePerPerson([...S.students.values()].filter(s => shareSections.has(s.section))).length;

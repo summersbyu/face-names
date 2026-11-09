@@ -107,6 +107,7 @@ VIEWS.roster = () => {
       h('h2', null, 'Welcome'),
       h('p', null, 'Where are your students coming from? You can add more later.'),
       h('div', { class: 'choice-grid' },
+        choice('Try a sample class first', '20 made-up students with faces, seats, and facts. No real student data; remove it in one click.', loadSample, 'try-sample'),
         choice('A file from a colleague', 'A student file with names, photos, and labels, ready to study. Your progress is your own.', openFile),
         choice('Seating chart PDFs', 'Names, groups, seats, and a photo of each student.', importSeatingCharts),
         choice('The class photo roll', 'Names, preferred names, and photos from the university’s roll page.', importRollPages, 'needs-computer'),

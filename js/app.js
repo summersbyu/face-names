@@ -94,8 +94,9 @@ function pickFiles({ accept, multiple = false, directory = false, capture = null
 
 // ---------- Version ----------
 // Shown once on each device after an update, newest first. Versions are dates, so they sort as text.
-const APP_VERSION = '2026.11.09b';
+const APP_VERSION = '2026.11.09c';
 const WHATS_NEW = [
+  ['2026.11.09c', 'Open the cheat sheet on the Study tab: your seating chart with names showing, for class. Manage → Needs attention lists students without photos, unfinished class photos, and more. New users can try a sample class first.'],
   ['2026.11.09b', 'Share only the sections a colleague teaches. In Chrome or Edge on a computer, back up automatically to a Box, OneDrive, or Google Drive folder (Backup tab).'],
   ['2026.11.09', 'Semesters: the newest is current, and earlier ones are kept for review in the Semester menu at the top. ' +
     'The Save picture roll bookmark saves a class roll in one click (Manage → Students → Import picture roll). ' +
@@ -390,15 +391,17 @@ function ensureSection() {
 }
 
 // ---------- Navigation ----------
-const MANAGE = [['roster', 'Students'], ['sections', 'Sections'], ['label', 'Class Photos']];
+const MANAGE = [['roster', 'Students'], ['sections', 'Sections'], ['label', 'Class Photos'], ['todo', 'Needs attention']];
 const TABS = [['study', 'Study'], ['manage', 'Manage'], ['backup', 'Backup']];
 const inManage = view => MANAGE.some(([id]) => id === view);
 let lastManage = 'roster';
-const goTo = view => { S.view = view; S.reviewPhoto = null; S.meet = null; S.room = null; render(); };
+const goTo = view => { S.view = view; S.reviewPhoto = null; S.meet = null; S.room = null; S.cheat = null; render(); };
 
 function manageNav() {
+  const todo = S.students.size ? todoCount() : 0;
   return h('nav', { class: 'subtabs', 'aria-label': 'Manage' }, MANAGE.map(([id, label]) =>
-    h('button', { class: S.view === id ? 'subtab active' : 'subtab', 'aria-current': S.view === id ? 'page' : null, onclick: () => goTo(id) }, label)));
+    h('button', { class: S.view === id ? 'subtab active' : 'subtab', 'aria-current': S.view === id ? 'page' : null, onclick: () => goTo(id) },
+      label, id === 'todo' && todo ? h('span', { class: 'count' }, String(todo)) : null)));
 }
 
 function render() {
@@ -412,8 +415,8 @@ function render() {
     h('button', { class: current === id ? 'tab active' : 'tab', 'aria-current': current === id ? 'page' : null,
       onclick: () => goTo(id === 'manage' ? lastManage : id) }, label)));
   const main = $('#main');
-  const busy = S.session || S.meet || S.room || S.reviewPhoto || S.newSemester || S.view === 'backup';
-  main.replaceChildren(...(managing ? [manageNav()] : []), ...(busy ? [] : [termBar()].filter(Boolean)), VIEWS[S.view]());
+  const busy = S.session || S.meet || S.room || S.cheat || S.reviewPhoto || S.newSemester || S.view === 'backup';
+  main.replaceChildren(...(managing ? [manageNav()] : []), ...(busy ? [] : [sampleBanner(), termBar()].filter(Boolean)), VIEWS[S.view]());
   try { localStorage.setItem('fn-view', JSON.stringify({ view: S.view, section: S.section, term: S.term || null })); } catch {}
 }
 

@@ -1,4 +1,6 @@
 /* IndexedDB storage. Everything stays in this browser on this computer. */
+// The automated check (tests/smoke.html) sets its own name, so it can never touch real data.
+const DB_NAME = window.FN_DB || 'face-names';
 const DB = (() => {
   const STORES = ['students', 'faces', 'photos', 'srs', 'meta'];
   let dbp = null;
@@ -6,7 +8,7 @@ const DB = (() => {
   function open() {
     if (!dbp) {
       dbp = new Promise((resolve, reject) => {
-        const req = indexedDB.open('face-names', 1);
+        const req = indexedDB.open(DB_NAME, 1);
         req.onupgradeneeded = () => {
           const db = req.result;
           for (const s of STORES) if (!db.objectStoreNames.contains(s)) db.createObjectStore(s, { keyPath: 'id' });
