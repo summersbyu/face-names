@@ -16,4 +16,4 @@ Use the Backup tab to save a copy, and keep that file private: it contains your 
 If a colleague gave you a student file: open the Backup tab, click Open a file, and choose it.
 It brings in the students and photos. Your own study progress starts fresh and is yours alone.
 
-README.md has the full instructions. It opens in any text editor.
+Face Names Quick Guide.txt is a one-page guide. README.md has the full instructions. Both open in any text editor.

@@ -1,0 +1,93 @@
+FACE NAMES - QUICK GUIDE
+
+Learn your students' names and faces with flashcards built from your class rolls,
+seating charts, and class photos.
+
+Web address: https://summersbyu.github.io/face-names/
+
+Nothing is uploaded. Students and progress stay in the browser you use, on that
+device. The website holds only the app.
+
+
+1. OPEN IT
+
+Computer: open the web address in Chrome or Edge.
+
+Phone: open it in Chrome (Android) or Safari (iPhone), then install it:
+  Android: Chrome menu > Install app (or Add to Home screen > Install).
+  iPhone: Share > Add to Home Screen > Add.
+Open it from the icon from then on. On an iPhone this matters: the icon keeps its
+own data, separate from Safari.
+
+
+2. TRY THE SAMPLE CLASS (optional)
+
+On the welcome screen, click Try a sample class first: 20 made-up students to try
+everything with. Remove it from the banner at the top when you're done.
+
+
+3. ADD YOUR STUDENTS (on a computer)
+
+Go to Manage > Students. Use whichever you have:
+
+  Seating chart PDFs: click Import seating chart and pick them all. You get names,
+  seats, groups, and a photo of each student.
+
+  Class photo rolls: click Import picture roll and drag the Save picture roll
+  button onto your bookmarks bar (Ctrl+Shift+B shows the bar). Open a section's
+  roll in Chrome and click that bookmark: it saves the roll, photos included, to
+  Downloads. Repeat for each section, then Import picture roll > Choose saved
+  roll files. Delete the downloaded files afterward.
+
+  A colleague's student file: Backup > Open a file.
+
+Each section asks for a name. Include the semester, like W27-1.
+
+
+4. STUDY
+
+Study tab, in order:
+  Meet new students: a few at a time, with names, facts, and photos.
+  Test yourself: recall the people you've met, on a spaced schedule.
+  Practice a set: your least-known students, or a random group.
+  Seating chart quiz: faces in their seats, names hidden.
+
+In class: Open the cheat sheet shows your seating chart with names. Type a name to
+find a seat; tap anyone for their photos and notes.
+
+Before class: pick that section at the top of the Study tab to drill just them.
+
+
+5. KEEP IT SAFE
+
+Backup > Save my backup downloads everything, including your progress. Do this now
+and then: clearing browser data erases the app's data.
+
+Automatic backups (Chrome or Edge on a computer): Backup > Back up automatically >
+Choose a folder. With Box Drive, your Box folder is in File Explorer under "Box"
+(C:\Users\<you>\Box); make a folder there such as "Face Names backups" and choose
+it. Chrome asks for permission again on each visit: click Allow and save on the
+Study tab.
+
+Phone and computer don't sync on their own. To move progress, save a backup on one
+and open it on the other with Backup > Open a file > Merge.
+
+
+6. SHARE WITH A COLLEAGUE
+
+Backup > Share students with a colleague. Tick only the sections they teach, then
+Save student file and send it the way you'd send other student records. They open
+it with Backup > Open a file; their own progress stays theirs.
+
+
+7. EACH NEW SEMESTER
+
+Import the new sections with the semester in each name (like F27-1). The newest
+semester becomes current. Earlier ones are kept for review: choose them from the
+Semester menu at the top. Returning students keep their photos and progress.
+
+
+IF SOMETHING'S MISSING
+
+Manage > Needs attention lists students without a photo, class photos to finish,
+sections without a seating chart, and records that may be the same student.
