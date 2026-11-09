@@ -258,7 +258,9 @@ function studyHome() {
   const nextGroups = [...new Set(nextMeet.flat().map(id => S.students.get(id).group).filter(Boolean))];
   const news = whatsNew();
   if (news) wrap.append(news);
-  const stale = S.srs.size && (!S.meta.lastBackup || Date.now() - S.meta.lastBackup > 7 * Engine.DAY);
+  const paused = folderPausedTip();
+  if (paused) wrap.append(paused);
+  const stale = !paused && S.srs.size && (!S.meta.lastBackup || Date.now() - S.meta.lastBackup > 7 * Engine.DAY);
   if (stale) {
     const save = h('button', { onclick: async () => { save.disabled = true; save.textContent = 'Saving…'; await saveBackup(); render(); toast('Backup saved. Keep it somewhere safe.'); } }, 'Save a backup');
     wrap.append(h('div', { class: 'tip toolbar' }, h('span', { class: 'spacer' }, `Your progress is only in this browser. ${lastBackupText()}`), save));

@@ -27,6 +27,8 @@ The **Backup** tab saves two kinds of file:
   **Replace** makes that browser an exact copy. The Study tab reminds you if a week passes without a backup.
 - **Student file** is for colleagues teaching the same students. It holds names, seats, photos, and your photo
   labels, but not your study progress, mix-ups, or study history. Notes are left out unless you tick the box.
+  Tick only the sections they teach (the current semester's are ticked to start); the file holds just those students,
+  their photos from any section, and the class photos taken in those sections.
   Opening one adds to what's there and keeps the colleague's own progress, so you can send an updated file later.
   Students they already have, by section and name, aren't duplicated, and their own labels aren't overwritten.
 
@@ -44,6 +46,12 @@ Open the web address above, then install it so it opens like an app, without a c
 A phone suits Meet and Test yourself, and **Class Photos → Take a photo** adds a class photo straight from the camera. Do imports and photo labeling on a computer, then bring the data over: on the
 computer, **Save my backup** (untick full class photos for a much smaller file), and on the phone, **Open a file**.
 Your phone and computer don't sync on their own: to bring progress across, save a backup on one and **Merge** it on the other.
+
+**Back up automatically (Chrome or Edge on a computer).** Under **Backup → Back up automatically**, choose a folder once,
+ideally one Box, OneDrive, or Google Drive keeps in sync and that only you can open. The app then saves
+`face-names-backup.json` there whenever you've made changes (when you switch away from the app, and every 10 minutes),
+plus a dated copy for each of the last 7 days. The browser asks permission again on each visit: click **Allow and save**
+on the Study page. On your phone, open `face-names-backup.json` from that folder and choose **Merge**.
 
 ## What to prepare
 

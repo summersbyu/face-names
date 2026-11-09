@@ -561,6 +561,26 @@
   }
 
   // Hints from weakest to strongest: the student's notes, initials, last name, then the start of the first name.
+  // A student file with only some sections: their students, the class photos taken in those sections, and every
+  // confirmed face of those students (from any section, since it's the same person), pointed at the record shared.
+  // Faces of anyone else in a shared photo go out unlabeled.
+  function pickShare({ students, faces, photos }, keep, personOf) {
+    const want = new Set(keep);
+    const out = students.filter(s => want.has(s.section));
+    const ids = new Set(out.map(s => s.id));
+    const byPerson = new Map();
+    for (const s of out) if (!byPerson.has(personOf(s.id))) byPerson.set(personOf(s.id), s.id);
+    const photoIds = new Set(photos.filter(p => want.has(p.section)).map(p => p.id));
+    const shared = [];
+    for (const f of faces) {
+      const owner = !f.studentId ? null : ids.has(f.studentId) ? f.studentId : byPerson.get(personOf(f.studentId));
+      const inPhoto = !!f.photoId && photoIds.has(f.photoId);
+      if (owner && (f.status === 'confirmed' || inPhoto)) shared.push({ ...f, studentId: owner, photoId: inPhoto ? f.photoId : null });
+      else if (inPhoto) shared.push({ ...f, studentId: null, status: f.status === 'rejected' ? 'rejected' : 'unknown' });
+    }
+    return { students: out.map(s => ({ ...s, personId: byPerson.get(personOf(s.id)) })), faces: shared, photoIds: [...photoIds] };
+  }
+
   // ---------- Semesters ----------
   // A term code like "F26", "W27", "Sp27", or "Su27", from a section name that starts with one ("W27-1")
   // or a label that names one ("Winter 2027"). "S27" (spring or summer) is accepted as typed.
@@ -600,7 +620,7 @@
 
   const Engine = {
     P, hungarian, assignWithUnknown, fitHomography, ransacHomography, applyH,
-    descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, mergeNotes, unionNotes, mergeBackup, planSectionMerge, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
+    descDist, matchPhoto, rosterFit, parseCSV, rosterFromCSV, normName, nameMatches, findStudent, mergeStudentFile, mergeNotes, unionNotes, mergeBackup, planSectionMerge, pickShare, nameFromFilename, parseRollCaption, parseRollHeader, rollName,
     schedule, nameHints, formatInterval, DAY, parseTerm, termLabel, termRank,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Engine;

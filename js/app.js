@@ -94,8 +94,9 @@ function pickFiles({ accept, multiple = false, directory = false, capture = null
 
 // ---------- Version ----------
 // Shown once on each device after an update, newest first. Versions are dates, so they sort as text.
-const APP_VERSION = '2026.11.09';
+const APP_VERSION = '2026.11.09b';
 const WHATS_NEW = [
+  ['2026.11.09b', 'Share only the sections a colleague teaches. In Chrome or Edge on a computer, back up automatically to a Box, OneDrive, or Google Drive folder (Backup tab).'],
   ['2026.11.09', 'Semesters: the newest is current, and earlier ones are kept for review in the Semester menu at the top. ' +
     'The Save picture roll bookmark saves a class roll in one click (Manage → Students → Import picture roll). ' +
     'On a phone, Class Photos has Take a photo.'],
@@ -444,6 +445,7 @@ async function init() {
     if (saved.term) S.term = saved.term;
   } catch {}
   if (!S.students.size) S.view = 'roster';
+  await Folder.load();
   render();
   try {
     const merged = sessionStorage.getItem('fn-merged');

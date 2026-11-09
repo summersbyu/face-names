@@ -68,6 +68,8 @@ main { padding: 1rem; max-width: 1400px; margin: 0 auto; }
 .start-choice { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: .25rem; text-align: left; padding: .8rem 1rem; white-space: normal; }
 .bookmarklet { display: inline-block; padding: .5rem 1rem; border-radius: 999px; background: var(--accent); color: var(--accent-text); font-weight: 600; text-decoration: none; cursor: grab; }
 @media (pointer: fine) { .needs-touch { display: none; } }
+.share-sections { display: grid; gap: .3rem; margin: .3rem 0 .5rem; }
+.share-sections .chip { margin-right: .3rem; }
 .term-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .75rem; }
 .section-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; padding: .5rem 0; border-top: 1px solid var(--line); }
 .view > * + * { margin-top: 1rem; }
